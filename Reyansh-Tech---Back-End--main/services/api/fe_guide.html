@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FE Integration Guide — VM Platform API</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+           background: #0d1117; color: #c9d1d9; font-size: 14px; line-height: 1.6; }
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Layout ── */
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 242px; min-width: 242px; background: #161b22;
+               border-right: 1px solid #21262d; position: sticky; top: 0;
+               height: 100vh; overflow-y: auto; flex-shrink: 0; }
+    .main { flex: 1; padding: 44px 52px 80px; max-width: 940px; min-width: 0; }
+
+    /* ── Sidebar ── */
+    .sb-logo { padding: 18px 16px 14px; border-bottom: 1px solid #21262d; }
+    .sb-logo h1 { font-size: 13px; font-weight: 700; color: #f0f6fc; letter-spacing: .02em; }
+    .sb-logo p  { font-size: 11px; color: #6e7681; margin-top: 2px; }
+    .sb-group { margin-top: 6px; }
+    .sb-group-title { padding: 8px 16px 3px; font-size: 10px; font-weight: 700;
+                      text-transform: uppercase; letter-spacing: .1em; color: #6e7681; }
+    .sb-item { display: block; padding: 5px 16px 5px 26px; font-size: 12px;
+               color: #8b949e; border-left: 2px solid transparent;
+               transition: color .12s, background .12s; }
+    .sb-item:hover, .sb-item.active { color: #f0f6fc; background: #21262d;
+                                       border-left-color: #388bfd; }
+    .sb-docs { padding: 14px 16px; border-top: 1px solid #21262d;
+               display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+    .sb-docs-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+                     letter-spacing: .1em; color: #6e7681; }
+    .sb-doc-btn { display: block; padding: 5px 10px; border-radius: 5px; font-size: 12px;
+                  font-weight: 500; border: 1px solid transparent; text-align: center; }
+    .sb-doc-btn.sw { background: #0d2a1a; color: #7ee787; border-color: #238636; }
+    .sb-doc-btn.sw:hover { background: #112e1c; }
+    .sb-doc-btn.rd { background: #0d1e38; color: #79c0ff; border-color: #1f6feb; }
+    .sb-doc-btn.rd:hover { background: #0d2140; }
+
+    /* ── Page header ── */
+    .guide-header { margin-bottom: 36px; }
+    .guide-header h1 { font-size: 26px; font-weight: 700; color: #f0f6fc; }
+    .guide-header p { color: #8b949e; margin-top: 8px; max-width: 600px; }
+    .hdr-links { display: flex; gap: 10px; margin-top: 16px; }
+    .hdr-link { display: inline-flex; align-items: center; gap: 5px; padding: 7px 16px;
+                border-radius: 6px; font-size: 13px; font-weight: 600; border: 1px solid; }
+    .hdr-link.sw { background: #0d2a1a; color: #7ee787; border-color: #238636; }
+    .hdr-link.sw:hover { background: #112e1c; }
+    .hdr-link.rd { background: #0d1e38; color: #79c0ff; border-color: #1f6feb; }
+    .hdr-link.rd:hover { background: #0d2140; }
+
+    /* ── Global notes ── */
+    .global-notes { background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+                    padding: 20px 24px; margin-bottom: 44px; }
+    .global-notes h3 { font-size: 12px; font-weight: 700; text-transform: uppercase;
+                       letter-spacing: .07em; color: #e6edf3; margin-bottom: 14px; }
+    .gn-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .gn-list li { font-size: 13px; color: #8b949e; padding-left: 18px; position: relative; }
+    .gn-list li::before { content: "→"; position: absolute; left: 0; color: #388bfd; }
+    .gn-list code { font-family: "SF Mono","Fira Code",Consolas,monospace; font-size: 11.5px;
+                    background: #21262d; padding: 1px 5px; border-radius: 3px; color: #e6edf3; }
+
+    /* ── Role sections ── */
+    .role-section { margin-bottom: 56px; }
+    .role-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
+                    padding-bottom: 12px; border-bottom: 1px solid #21262d; flex-wrap: wrap; }
+    .role-heading h2 { font-size: 17px; font-weight: 600; color: #f0f6fc; }
+    .role-route { font-family: monospace; font-size: 11px; color: #6e7681; }
+    .rb { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+          text-transform: uppercase; letter-spacing: .06em; border: 1px solid; }
+    .rb-auth  { background: #0d2a1a; color: #7ee787; border-color: #238636; }
+    .rb-admin { background: #1a1a3e; color: #a5b4fc; border-color: #4338ca; }
+    .rb-police{ background: #0d1e38; color: #79c0ff; border-color: #1f6feb; }
+    .rb-amb   { background: #2a0d0d; color: #ffa8a8; border-color: #8b2020; }
+    .rb-fire  { background: #2a1a0d; color: #fdba74; border-color: #92400e; }
+    .rb-defer { background: #161b22; color: #6e7681; border-color: #30363d; }
+
+    /* ── Page cards ── */
+    .page-card { border: 1px solid #21262d; border-radius: 8px; margin-bottom: 14px;
+                 overflow: hidden; }
+    .page-card.deferred { opacity: .5; }
+
+    /* pc-head: left = title, right = route + api links */
+    .pc-head { display: flex; align-items: center; justify-content: space-between;
+               padding: 12px 18px; background: #161b22; gap: 12px; flex-wrap: wrap; }
+    .pc-head h3 { font-size: 14px; font-weight: 600; color: #e6edf3; flex-shrink: 0; }
+    .pc-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .pc-route { font-family: monospace; font-size: 11px; color: #6e7681;
+                background: #0d1117; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+
+    /* API quick-link pills in the page card header */
+    .pc-api { display: flex; gap: 4px; }
+    .pc-api a { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px;
+                border: 1px solid; white-space: nowrap; letter-spacing: .02em; }
+    .pc-api a.sw { background: #0d2a1a; color: #7ee787; border-color: #238636; }
+    .pc-api a.sw:hover { background: #112e1c; }
+    .pc-api a.rd { background: #0d1e38; color: #79c0ff; border-color: #1f6feb; }
+    .pc-api a.rd:hover { background: #0d2140; }
+
+    .pc-body { padding: 16px 18px; background: #0d1117; }
+
+    /* ── Sections ── */
+    .sec { margin-bottom: 18px; }
+    .sec:last-child { margin-bottom: 0; }
+    /* Section title row: label on left, inline doc links on right */
+    .sec-head { display: flex; align-items: center; justify-content: space-between;
+                gap: 8px; margin-bottom: 8px; }
+    .sec-title { font-size: 10px; font-weight: 700; text-transform: uppercase;
+                 letter-spacing: .09em; color: #6e7681; }
+    .sec-links { display: flex; gap: 4px; }
+    .sec-links a { font-size: 10px; font-weight: 600; padding: 1px 7px;
+                   border-radius: 4px; border: 1px solid; white-space: nowrap; }
+    .sec-links a.sw { background: #0d2a1a; color: #7ee787; border-color: #238636; }
+    .sec-links a.sw:hover { background: #112e1c; }
+    .sec-links a.rd { background: #0d1e38; color: #79c0ff; border-color: #1f6feb; }
+    .sec-links a.rd:hover { background: #0d2140; }
+
+    /* ── Endpoint rows ── */
+    .ep { display: grid; grid-template-columns: 54px 1fr; align-items: start;
+          gap: 10px; padding: 9px 12px; border-radius: 6px;
+          background: #161b22; border: 1px solid #21262d; margin-bottom: 5px; }
+    .ep:last-child { margin-bottom: 0; }
+    .badge { font-size: 10px; font-weight: 800; padding: 3px 0; border-radius: 4px;
+             text-align: center; letter-spacing: .04em; margin-top: 2px; border: 1px solid; }
+    .b-get  { background: #0d2a1a; color: #7ee787; border-color: #238636; }
+    .b-post { background: #0d1e38; color: #79c0ff; border-color: #1f6feb; }
+    .b-pat  { background: #2a1a0d; color: #fdba74; border-color: #92400e; }
+    .b-del  { background: #2a0d0d; color: #ffa8a8; border-color: #8b2020; }
+    .b-ws   { background: #1a0d2a; color: #c4b5fd; border-color: #6d28d9; }
+    .ep-path { font-family: "SF Mono","Fira Code",Consolas,monospace; font-size: 12.5px;
+               color: #e6edf3; word-break: break-all; }
+    .ep-desc { font-size: 12px; color: #8b949e; margin-top: 2px; }
+    .ep-params { font-family: "SF Mono","Fira Code",Consolas,monospace; font-size: 11px;
+                 color: #6e7681; margin-top: 3px; }
+
+    /* ── Notes ── */
+    .note { border-radius: 6px; padding: 9px 13px; margin-bottom: 10px;
+            font-size: 12px; border: 1px solid; }
+    .note:last-child { margin-bottom: 0; }
+    .note code { font-family: "SF Mono","Fira Code",Consolas,monospace; font-size: 11px;
+                 background: rgba(0,0,0,.25); padding: 1px 5px; border-radius: 3px; }
+    .n-blue   { background: #0d1e38; color: #90cdf4; border-color: #1f6feb; }
+    .n-yellow { background: #2a1a0d; color: #fbd38d; border-color: #92400e; }
+
+    .defer-tag { font-size: 10px; color: #6e7681; background: #161b22;
+                 border: 1px solid #21262d; padding: 1px 6px; border-radius: 4px;
+                 margin-left: 6px; vertical-align: middle; }
+    .footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid #21262d;
+              font-size: 12px; color: #6e7681; }
+    .footer a { color: #388bfd; }
+
+    @media (max-width: 720px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ════════ SIDEBAR ════════ -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <h1>FE Integration Guide</h1>
+      <p>VM Platform API · v1.0</p>
+    </div>
+    <div class="sb-group">
+      <div class="sb-group-title">General</div>
+      <a class="sb-item" href="#global-notes">Global Notes</a>
+      <a class="sb-item" href="#auth">Authentication</a>
+    </div>
+    <div class="sb-group">
+      <div class="sb-group-title">Super Admin</div>
+      <a class="sb-item" href="#admin-dashboard">Dashboard</a>
+      <a class="sb-item" href="#admin-live">Live Monitoring</a>
+      <a class="sb-item" href="#admin-users">Users</a>
+      <a class="sb-item" href="#admin-vehicles">Vehicles</a>
+      <a class="sb-item" href="#admin-devices">IoT Devices</a>
+      <a class="sb-item" href="#admin-services">Emergency Services</a>
+    </div>
+    <div class="sb-group">
+      <div class="sb-group-title">Police</div>
+      <a class="sb-item" href="#police-alerts">New Alerts</a>
+      <a class="sb-item" href="#police-live">Live Monitoring</a>
+      <a class="sb-item" href="#police-active">Active Cases</a>
+      <a class="sb-item" href="#police-completed">Completed Cases</a>
+      <a class="sb-item" href="#police-activities">Vehicle Activities</a>
+    </div>
+    <div class="sb-group">
+      <div class="sb-group-title">Ambulance</div>
+      <a class="sb-item" href="#amb-dashboard">Dashboard</a>
+      <a class="sb-item" href="#amb-alerts">Incoming Alerts</a>
+      <a class="sb-item" href="#amb-active">Active Trips</a>
+      <a class="sb-item" href="#amb-completed">Completed Trips</a>
+    </div>
+    <div class="sb-group">
+      <div class="sb-group-title">Fire Brigade</div>
+      <a class="sb-item" href="#fire-dashboard">Dashboard</a>
+      <a class="sb-item" href="#fire-alerts">New Alerts</a>
+      <a class="sb-item" href="#fire-active">Active Incidents</a>
+    </div>
+    <div class="sb-docs">
+      <span class="sb-docs-label">API Docs</span>
+      <a class="sb-doc-btn sw" href="/docs" target="_blank">Swagger UI ↗</a>
+      <a class="sb-doc-btn rd" href="/redoc" target="_blank">ReDoc ↗</a>
+      <a class="sb-doc-btn rd" href="/api-reference" target="_blank"
+         style="background:#1a1d2e;color:#a0aec0;border-color:#30363d">API Reference ↗</a>
+    </div>
+  </aside>
+
+  <!-- ════════ MAIN ════════ -->
+  <main class="main">
+
+    <div class="guide-header">
+      <h1>Frontend Integration Guide</h1>
+      <p>Per-page API mapping for every dashboard in the VM Platform. Find your page, see which endpoints each section needs, and jump directly to the live docs.</p>
+      <div class="hdr-links">
+        <a class="hdr-link sw" href="/docs" target="_blank">Open Swagger UI ↗</a>
+        <a class="hdr-link rd" href="/redoc" target="_blank">Open ReDoc ↗</a>
+      </div>
+    </div>
+
+    <!-- ── GLOBAL NOTES ── -->
+    <div id="global-notes" class="global-notes">
+      <h3>Global Integration Notes — read before you start</h3>
+      <ul class="gn-list">
+        <li>Send <code>Authorization: Bearer &lt;access_token&gt;</code> on every authenticated request. Token expires in 15 min — call <code>POST /auth/refresh</code> to rotate.</li>
+        <li>All list endpoints return <code>{ "data": [...], "meta": { "total", "page", "page_size", "pages" } }</code>. Read <code>response.data</code>, not <code>response</code>.</li>
+        <li>Use <code>user.org_type</code> from login to pick the dashboard — <b>not</b> <code>user.role</code>. Mapping: <code>PLATFORM</code>→/admin · <code>POLICE</code>→/police · <code>AMBULANCE</code>→/ambulance · <code>FIRE_DEPARTMENT</code>→/fire.</li>
+        <li><code>user.role</code> is the granular permission level (<code>org_admin</code>, <code>operator</code>, <code>dispatcher</code>, <code>viewer</code>) — use for feature gating, not routing.</li>
+        <li>All enum fields (<code>severity</code>, <code>status</code>, <code>incident_type</code>, <code>org_type</code>) are <code>UPPERCASE</code>. Call <code>.toLowerCase()</code> before display.</li>
+        <li>Incident status → <code>OPEN</code>=pending · <code>ACKNOWLEDGED</code>=acknowledged · <code>RESPONDING</code>=dispatched/on_route/on_scene · <code>RESOLVED</code>/<code>CLOSED</code>=completed.</li>
+        <li>Trip status → <code>ACTIVE</code>=Ongoing · <code>COMPLETED</code>=Completed · <code>CANCELLED</code>=Cancelled.</li>
+        <li><code>VehicleStateRead</code> (from <code>telemetry/latest</code>) returns all fields as <b>strings</b>. Parse with <code>parseFloat()</code> before charting.</li>
+        <li>WebSocket: connect once per session at <code>wss://api.reyanshtechnologies.com/ws/connect?token=&lt;access_token&gt;</code>. Messages: <code>{ "type": "vehicle_state"|"incident_notification", "data": {...} }</code>. Send a keepalive ping every 20 s.</li>
+        <li>CORS: <code>localhost:3000</code>, <code>localhost:5173</code>, and <code>localhost:8080</code> are all allowed — no proxy needed during local development.</li>
+        <li><code>mac_address</code> is a free-text field — no MAC format required. Avoid <code>/</code>, <code>#</code>, <code>+</code>, spaces.</li>
+        <li>There is no <code>HOSPITAL</code> org type — hospital pages remain on mock data.</li>
+      </ul>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!--  AUTH                                   -->
+    <!-- ═══════════════════════════════════════ -->
+    <div id="auth" class="role-section">
+      <div class="role-heading">
+        <span class="rb rb-auth">Auth</span>
+        <h2>Authentication</h2>
+        <span class="role-route">/login · /signup · /otp · /forgot</span>
+      </div>
+
+      <div class="page-card">
+        <div class="pc-head">
+          <h3>Login Page</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/login</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/auth" target="_blank">Swagger: auth ↗</a>
+              <a class="rd" href="/redoc#tag/auth" target="_blank">ReDoc: auth ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="note n-blue">After login, read <code>user.org_type</code> to route to the correct dashboard. Persist the entire <code>user</code> object (including <code>org_name</code>) for sidebar display.</div>
+
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Login form submit</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/auth/login_auth_login_post" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/login_auth_login_post" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep">
+              <span class="badge b-post">POST</span>
+              <div>
+                <div class="ep-path">/auth/login</div>
+                <div class="ep-desc">Returns <code>access_token</code>, <code>refresh_token</code>, and <code>user</code> (<code>user_id</code>, <code>email</code>, <code>name</code>, <code>org_id</code>, <code>org_type</code>, <code>org_name</code>, <code>role</code>).</div>
+                <div class="ep-params">Body: { email, password }</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Token refresh (call before access token expires)</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/auth/refresh_auth_refresh_post" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/refresh_auth_refresh_post" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep">
+              <span class="badge b-post">POST</span>
+              <div>
+                <div class="ep-path">/auth/refresh</div>
+                <div class="ep-desc">Rotates both tokens. Always replace the stored pair with the new response.</div>
+                <div class="ep-params">Body: { refresh_token }</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Logout</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/auth/logout_auth_logout_post" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/logout_auth_logout_post" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep">
+              <span class="badge b-post">POST</span>
+              <div>
+                <div class="ep-path">/auth/logout</div>
+                <div class="ep-desc">Revokes both tokens. Pass access token in header, refresh token in body.</div>
+                <div class="ep-params">Header: Authorization: Bearer &lt;token&gt; · Body: { refresh_token }</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="note n-yellow">Signup, OTP, and Forgot Password flows are not backed by the API yet — keep using mock/local logic.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!--  SUPER ADMIN                            -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="role-section">
+      <div class="role-heading">
+        <span class="rb rb-admin">Super Admin</span>
+        <h2>Super Admin Dashboard</h2>
+        <span class="role-route">/admin/*  ·  org_type = PLATFORM</span>
+      </div>
+
+      <!-- Dashboard -->
+      <div id="admin-dashboard" class="page-card">
+        <div class="pc-head">
+          <h3>Dashboard</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/admin</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/incidents" target="_blank">Swagger: incidents ↗</a>
+              <a class="sw" href="/docs#/vehicles" target="_blank">Swagger: vehicles ↗</a>
+              <a class="rd" href="/redoc#tag/incidents" target="_blank">ReDoc ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">KPI cards — use meta.total for counts</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/organizations/list_organizations_organizations__get" target="_blank">orgs ↗</a>
+                <a class="sw" href="/docs#/users/list_users_users__get" target="_blank">users ↗</a>
+                <a class="sw" href="/docs#/vehicles/list_vehicles_vehicles__get" target="_blank">vehicles ↗</a>
+                <a class="sw" href="/docs#/devices/list_devices_devices__get" target="_blank">devices ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/organizations</div><div class="ep-params">?page_size=1</div></div></div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/users</div><div class="ep-params">?page_size=1</div></div></div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles</div><div class="ep-params">?page_size=1</div></div></div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/devices</div><div class="ep-params">?page_size=1</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Recent incidents feed</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/list_incidents_incidents__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_incidents_incidents__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-params">?page=1&amp;page_size=10</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Live notification badge (WebSocket)</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/ws" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#tag/ws" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-ws">WS</span><div><div class="ep-path">/ws/connect?token=&lt;access_token&gt;</div><div class="ep-desc"><code>incident_notification</code> messages increment the global alert badge.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Monitoring -->
+      <div id="admin-live" class="page-card">
+        <div class="pc-head">
+          <h3>Live Monitoring</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/admin/live</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/vehicles" target="_blank">Swagger: vehicles ↗</a>
+              <a class="sw" href="/docs#/ws" target="_blank">Swagger: ws ↗</a>
+              <a class="rd" href="/redoc#tag/vehicles" target="_blank">ReDoc ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Map — seed vehicle pins on page load</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/vehicles/list_vehicles_vehicles__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_vehicles_vehicles__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles</div><div class="ep-desc">Fetch all active vehicles for initial pins. Then call <code>telemetry/latest</code> per vehicle for coordinates.</div><div class="ep-params">?is_active=true&amp;page_size=100</div></div></div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles/{vehicle_id}/telemetry/latest</div><div class="ep-desc">Initial GPS snapshot. All fields are strings — <code>parseFloat(lat)</code>, <code>parseFloat(lng)</code>.</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Live position stream</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/ws" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#tag/ws" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-ws">WS</span><div><div class="ep-path">/ws/connect?token=&lt;access_token&gt;</div><div class="ep-desc"><code>vehicle_state</code> → update map pin. <code>incident_notification</code> → show alert overlay. Match on <code>device_id</code>.</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Vehicle detail panel (on pin click)</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/vehicles/get_vehicle_telemetry_latest_vehicles__vehicle_id__telemetry_latest_get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/get_vehicle_telemetry_latest_vehicles__vehicle_id__telemetry_latest_get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles/{vehicle_id}</div><div class="ep-desc">Static details: registration, make, model, org.</div></div></div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles/{vehicle_id}/telemetry/latest</div><div class="ep-desc">Live metrics snapshot to seed the panel. WS <code>vehicle_state</code> messages update it thereafter.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users -->
+      <div id="admin-users" class="page-card">
+        <div class="pc-head">
+          <h3>Users</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/admin/users</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/users" target="_blank">Swagger: users ↗</a>
+              <a class="sw" href="/docs#/organizations" target="_blank">Swagger: orgs ↗</a>
+              <a class="rd" href="/redoc#tag/users" target="_blank">ReDoc ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Users table</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/users/list_users_users__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_users_users__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/users</div><div class="ep-desc">Includes <code>org_name</code>, <code>org_type</code>, <code>role</code>, and flat <code>permissions[]</code> per user.</div><div class="ep-params">?page=1&amp;page_size=20&amp;search=&amp;org_id=&amp;role=&amp;is_active=</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Org filter dropdown</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/organizations/list_organizations_organizations__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_organizations_organizations__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/organizations</div><div class="ep-desc">Populate the "Filter by organization" dropdown. Use <code>id</code> + <code>name</code>.</div><div class="ep-params">?is_active=true&amp;page_size=100</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Create user modal</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/users/create_user_users__post" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/create_user_users__post" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-post">POST</span><div><div class="ep-path">/users</div><div class="ep-desc">Role must be valid for the target org type. See Swagger for the full role↔org_type matrix. Returns 409 on duplicate email/username.</div><div class="ep-params">Body: { organization_id, email, username, password, first_name?, last_name?, phone_number?, role }</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Edit user drawer</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/users/update_user_users__user_id__patch" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/update_user_users__user_id__patch" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-pat">PATCH</span><div><div class="ep-path">/users/{user_id}</div><div class="ep-desc">Partial update. Pass <code>password</code> to reset it; <code>is_active=false</code> to deactivate.</div><div class="ep-params">Body: { first_name?, last_name?, phone_number?, role?, is_active?, password? }</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vehicles -->
+      <div id="admin-vehicles" class="page-card">
+        <div class="pc-head">
+          <h3>Vehicles</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/admin/vehicles</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/vehicles" target="_blank">Swagger: vehicles ↗</a>
+              <a class="sw" href="/docs#/trips" target="_blank">Swagger: trips ↗</a>
+              <a class="rd" href="/redoc#tag/vehicles" target="_blank">ReDoc ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Vehicles table</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/vehicles/list_vehicles_vehicles__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_vehicles_vehicles__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles</div><div class="ep-desc">Filter by category tab or search by plate/make/model.</div><div class="ep-params">?is_active=true&amp;vehicle_category=EMERGENCY_VEHICLE|USER_VEHICLE&amp;search=&amp;page=1&amp;page_size=50</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Vehicle detail panel</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/vehicles/get_vehicle_vehicles__vehicle_id__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/get_vehicle_vehicles__vehicle_id__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles/{vehicle_id}</div><div class="ep-desc">Full record — registration, make, model, org association.</div></div></div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles/{vehicle_id}/telemetry/latest</div><div class="ep-desc">Current GPS + sensor snapshot. All fields are strings — parse before display.</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Trip history tab</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/trips/list_trips_trips__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_trips_trips__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/trips</div><div class="ep-params">?vehicle_id={vehicle_id}&amp;page=1&amp;page_size=20</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Telemetry history chart</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/vehicles/get_vehicle_telemetry_history_vehicles__vehicle_id__telemetry_history_get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/get_vehicle_telemetry_history_vehicles__vehicle_id__telemetry_history_get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles/{vehicle_id}/telemetry/history</div><div class="ep-desc">Raw telemetry points for charts (speed / RPM / temp). Max page_size=500.</div><div class="ep-params">?from_dt=ISO8601&amp;to_dt=ISO8601&amp;page=1&amp;page_size=500</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Devices -->
+      <div id="admin-devices" class="page-card">
+        <div class="pc-head">
+          <h3>IoT Devices</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/admin/devices</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/devices" target="_blank">Swagger: devices ↗</a>
+              <a class="rd" href="/redoc#tag/devices" target="_blank">ReDoc: devices ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Devices table</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/devices/list_devices_devices__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_devices_devices__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/devices</div><div class="ep-desc">Filter by <code>is_active</code> for the online/offline status tab.</div><div class="ep-params">?is_active=true|false&amp;vehicle_id=&amp;page=1&amp;page_size=50</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Device detail panel</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/devices/get_device_devices__device_id__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/get_device_devices__device_id__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/devices/{device_id}</div><div class="ep-desc">Firmware version, MAC address, <code>last_seen_at</code>, linked vehicle.</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Activate / deactivate toggle</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/devices/update_device_status_devices__device_id__status_patch" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/update_device_status_devices__device_id__status_patch" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-pat">PATCH</span><div><div class="ep-path">/devices/{device_id}/status</div><div class="ep-desc">Deactivating removes EMQX credentials — device stops sending telemetry immediately.</div><div class="ep-params">?is_active=true|false</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Provision new device</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/devices/provision_device_devices__post" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/provision_device_devices__post" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-post">POST</span><div><div class="ep-path">/devices</div><div class="ep-desc">Response includes <code>emqx_username</code> + <code>emqx_password</code> — <b>shown once only</b>. Display in a one-time confirmation modal.</div><div class="ep-params">Body: { mac_address, organization_id, vehicle_id?, firmware_version? }</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Emergency Services -->
+      <div id="admin-services" class="page-card">
+        <div class="pc-head">
+          <h3>Emergency Services</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/admin/services</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/organizations" target="_blank">Swagger: organizations ↗</a>
+              <a class="rd" href="/redoc#tag/organizations" target="_blank">ReDoc: organizations ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="note n-blue">"Emergency Services" in the FE maps to the <code>/organizations</code> API. Each org = one service unit (e.g. Bandra Police Station).</div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Services list — tabbed by type</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/organizations/list_organizations_organizations__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_organizations_organizations__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/organizations</div><div class="ep-desc">Switch <code>org_type</code> per tab: Police / Ambulance / Fire / Customer.</div><div class="ep-params">?org_type=POLICE|AMBULANCE|FIRE_DEPARTMENT|CUSTOMER&amp;is_active=true&amp;search=&amp;page=1&amp;page_size=20</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Add new service</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/organizations/create_organization_organizations__post" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/create_organization_organizations__post" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-post">POST</span><div><div class="ep-path">/organizations</div><div class="ep-desc"><code>slug</code> is auto-generated — do not send it.</div><div class="ep-params">Body: { name, org_type, metadata? }</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Edit service / deactivate</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/organizations/update_organization_organizations__org_id__patch" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/update_organization_organizations__org_id__patch" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-pat">PATCH</span><div><div class="ep-path">/organizations/{org_id}</div><div class="ep-params">Body: { name?, is_active?, metadata? }</div></div></div>
+            <div class="ep"><span class="badge b-del">DELETE</span><div><div class="ep-path">/organizations/{org_id}</div><div class="ep-desc">Soft delete — sets <code>is_active=false</code>. PLATFORM super_admin only.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-card deferred"><div class="pc-head"><h3>Analytics <span class="defer-tag">deferred</span></h3><div class="pc-meta"><span class="pc-route">/admin/analytics</span></div></div><div class="pc-body"><div class="note n-yellow">No API endpoints yet — keep using mock data.</div></div></div>
+      <div class="page-card deferred"><div class="pc-head"><h3>Roles &amp; Permissions <span class="defer-tag">deferred</span></h3><div class="pc-meta"><span class="pc-route">/admin/roles</span></div></div><div class="pc-body"><div class="note n-yellow">No API endpoints yet — keep using mock data.</div></div></div>
+      <div class="page-card deferred"><div class="pc-head"><h3>Security Logs <span class="defer-tag">deferred</span></h3><div class="pc-meta"><span class="pc-route">/admin/security</span></div></div><div class="pc-body"><div class="note n-yellow">No API endpoints yet — keep using mock data.</div></div></div>
+      <div class="page-card deferred"><div class="pc-head"><h3>Settings <span class="defer-tag">deferred</span></h3><div class="pc-meta"><span class="pc-route">/admin/settings</span></div></div><div class="pc-body"><div class="note n-yellow">No API endpoints yet — keep using mock data.</div></div></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!--  POLICE                                 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="role-section">
+      <div class="role-heading">
+        <span class="rb rb-police">Police</span>
+        <h2>Police Command Dashboard</h2>
+        <span class="role-route">/police/*  ·  org_type = POLICE</span>
+      </div>
+
+      <!-- New Alerts -->
+      <div id="police-alerts" class="page-card">
+        <div class="pc-head">
+          <h3>New Alerts</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/police (index)</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/incidents" target="_blank">Swagger: incidents ↗</a>
+              <a class="sw" href="/docs#/ws" target="_blank">Swagger: ws ↗</a>
+              <a class="rd" href="/redoc#tag/incidents" target="_blank">ReDoc ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Open alerts list</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/list_incidents_incidents__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_incidents_incidents__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-desc">Police sees incidents for all USER_VEHICLEs + own emergency vehicles. Severity is UPPERCASE — call <code>.toLowerCase()</code>.</div><div class="ep-params">?status=OPEN&amp;page=1&amp;page_size=20</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Acknowledge alert</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/update_incident_status_incidents__incident_id__status_patch" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/update_incident_status_incidents__incident_id__status_patch" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-pat">PATCH</span><div><div class="ep-path">/incidents/{incident_id}/status</div><div class="ep-params">Body: { "status": "ACKNOWLEDGED" }</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Real-time new incident push</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/ws" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#tag/ws" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-ws">WS</span><div><div class="ep-path">/ws/connect?token=&lt;access_token&gt;</div><div class="ep-desc">On <code>incident_notification</code>, prepend to list, play sound, increment badge.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Monitoring -->
+      <div id="police-live" class="page-card">
+        <div class="pc-head">
+          <h3>Live Monitoring</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/police/live-monitoring</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/vehicles" target="_blank">Swagger: vehicles ↗</a>
+              <a class="sw" href="/docs#/ws" target="_blank">Swagger: ws ↗</a>
+              <a class="rd" href="/redoc#tag/vehicles" target="_blank">ReDoc ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Map — vehicle pins on load</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/vehicles/list_vehicles_vehicles__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_vehicles_vehicles__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles</div><div class="ep-desc">Returns USER_VEHICLEs + own emergency fleet. Then <code>telemetry/latest</code> per vehicle for coords.</div><div class="ep-params">?is_active=true&amp;page_size=100</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Live updates + incident overlays</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/ws" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#tag/ws" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-ws">WS</span><div><div class="ep-path">/ws/connect?token=&lt;access_token&gt;</div><div class="ep-desc"><code>vehicle_state</code> → update pin. <code>incident_notification</code> → show red alert marker on map.</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Selected vehicle telemetry panel</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/vehicles/get_vehicle_telemetry_latest_vehicles__vehicle_id__telemetry_latest_get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/get_vehicle_telemetry_latest_vehicles__vehicle_id__telemetry_latest_get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles/{vehicle_id}/telemetry/latest</div><div class="ep-desc">Seeds the panel. WS <code>vehicle_state</code> messages keep it live.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Cases -->
+      <div id="police-active" class="page-card">
+        <div class="pc-head">
+          <h3>Active Cases</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/police/active</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/incidents" target="_blank">Swagger: incidents ↗</a>
+              <a class="rd" href="/redoc#tag/incidents" target="_blank">ReDoc: incidents ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Acknowledged + responding incidents</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/list_incidents_incidents__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_incidents_incidents__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-params">?status=ACKNOWLEDGED&amp;page_size=50</div></div></div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-params">?status=RESPONDING&amp;page_size=50</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Advance status action</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/update_incident_status_incidents__incident_id__status_patch" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/update_incident_status_incidents__incident_id__status_patch" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-pat">PATCH</span><div><div class="ep-path">/incidents/{incident_id}/status</div><div class="ep-desc">Advance: <code>ACKNOWLEDGED → RESPONDING → RESOLVED</code>.</div><div class="ep-params">Body: { "status": "RESPONDING" | "RESOLVED" }</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Completed Cases -->
+      <div id="police-completed" class="page-card">
+        <div class="pc-head">
+          <h3>Completed Cases</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/police/completed</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/incidents" target="_blank">Swagger: incidents ↗</a>
+              <a class="rd" href="/redoc#tag/incidents" target="_blank">ReDoc: incidents ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Resolved / closed incidents</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/list_incidents_incidents__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_incidents_incidents__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-params">?status=RESOLVED&amp;from_dt=ISO8601&amp;to_dt=ISO8601&amp;page=1&amp;page_size=20</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Incident detail (on row click)</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/get_incident_incidents__incident_id__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/get_incident_incidents__incident_id__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents/{incident_id}</div><div class="ep-desc">Full incident record for a detail drawer or modal.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vehicle Activities -->
+      <div id="police-activities" class="page-card">
+        <div class="pc-head">
+          <h3>Vehicle Activities</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/police/activities</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/trips" target="_blank">Swagger: trips ↗</a>
+              <a class="sw" href="/docs#/vehicles" target="_blank">Swagger: vehicles ↗</a>
+              <a class="rd" href="/redoc#tag/trips" target="_blank">ReDoc ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Trips table</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/trips/list_trips_trips__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_trips_trips__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/trips</div><div class="ep-params">?vehicle_id=&amp;status=COMPLETED&amp;from_dt=&amp;to_dt=&amp;page=1&amp;page_size=20</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Vehicle filter dropdown</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/vehicles/list_vehicles_vehicles__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_vehicles_vehicles__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles</div><div class="ep-desc">Populate with <code>id</code> + <code>registration_number</code>.</div><div class="ep-params">?is_active=true&amp;page_size=100</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Route replay (on row expand)</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/trips/get_trip_telemetry_trips__trip_id__telemetry_get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/get_trip_telemetry_trips__trip_id__telemetry_get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/trips/{trip_id}/telemetry</div><div class="ep-desc">Ordered GPS points — draw as a polyline. Max page_size=500.</div><div class="ep-params">?page=1&amp;page_size=500</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-card deferred"><div class="pc-head"><h3>Reports <span class="defer-tag">deferred</span></h3><div class="pc-meta"><span class="pc-route">/police/reports</span></div></div><div class="pc-body"><div class="note n-yellow">No API endpoints yet — keep using mock data.</div></div></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!--  AMBULANCE                              -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="role-section">
+      <div class="role-heading">
+        <span class="rb rb-amb">Ambulance</span>
+        <h2>108 Dispatch Dashboard</h2>
+        <span class="role-route">/ambulance/*  ·  org_type = AMBULANCE</span>
+      </div>
+
+      <!-- Dashboard -->
+      <div id="amb-dashboard" class="page-card">
+        <div class="pc-head">
+          <h3>Dashboard</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/ambulance</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/incidents" target="_blank">Swagger: incidents ↗</a>
+              <a class="sw" href="/docs#/trips" target="_blank">Swagger: trips ↗</a>
+              <a class="rd" href="/redoc#tag/incidents" target="_blank">ReDoc ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">KPI cards</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/list_incidents_incidents__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_incidents_incidents__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-desc">Incoming alert count — use <code>meta.total</code>.</div><div class="ep-params">?status=OPEN&amp;page_size=1</div></div></div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/trips</div><div class="ep-desc">Active trips count — use <code>meta.total</code>.</div><div class="ep-params">?status=ACTIVE&amp;page_size=1</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Recent alerts preview + live push</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/list_incidents_incidents__get" target="_blank">Swagger ↗</a>
+                <a class="sw" href="/docs#/ws" target="_blank">ws ↗</a>
+                <a class="rd" href="/redoc#tag/ws" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-desc">Seed the preview list.</div><div class="ep-params">?status=OPEN&amp;page_size=5</div></div></div>
+            <div class="ep"><span class="badge b-ws">WS</span><div><div class="ep-path">/ws/connect?token=&lt;access_token&gt;</div><div class="ep-desc"><code>incident_notification</code> messages prepend to list and increment badge.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Incoming Alerts -->
+      <div id="amb-alerts" class="page-card">
+        <div class="pc-head">
+          <h3>Incoming Alerts</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/ambulance/alerts</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/incidents" target="_blank">Swagger: incidents ↗</a>
+              <a class="rd" href="/redoc#tag/incidents" target="_blank">ReDoc: incidents ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Open alerts list</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/list_incidents_incidents__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_incidents_incidents__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-params">?status=OPEN&amp;page=1&amp;page_size=20</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Accept / dispatch</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/update_incident_status_incidents__incident_id__status_patch" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/update_incident_status_incidents__incident_id__status_patch" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-pat">PATCH</span><div><div class="ep-path">/incidents/{incident_id}/status</div><div class="ep-desc">Accept = <code>ACKNOWLEDGED</code>. Dispatch = <code>RESPONDING</code>.</div><div class="ep-params">Body: { "status": "ACKNOWLEDGED" | "RESPONDING" }</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Trips -->
+      <div id="amb-active" class="page-card">
+        <div class="pc-head">
+          <h3>Active Trips</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/ambulance/active</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/trips" target="_blank">Swagger: trips ↗</a>
+              <a class="sw" href="/docs#/vehicles" target="_blank">Swagger: vehicles ↗</a>
+              <a class="rd" href="/redoc#tag/trips" target="_blank">ReDoc ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Active trips list</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/trips/list_trips_trips__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_trips_trips__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/trips</div><div class="ep-params">?status=ACTIVE&amp;page=1&amp;page_size=20</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Live vehicle position per trip</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/vehicles/get_vehicle_telemetry_latest_vehicles__vehicle_id__telemetry_latest_get" target="_blank">Swagger ↗</a>
+                <a class="sw" href="/docs#/ws" target="_blank">ws ↗</a>
+                <a class="rd" href="/redoc#tag/ws" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles/{vehicle_id}/telemetry/latest</div><div class="ep-desc">Seed position and speed per trip's vehicle. WS keeps it live.</div></div></div>
+            <div class="ep"><span class="badge b-ws">WS</span><div><div class="ep-path">/ws/connect?token=&lt;access_token&gt;</div><div class="ep-desc">Subscribe once; filter <code>vehicle_state</code> messages by vehicle IDs on screen.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Completed Trips -->
+      <div id="amb-completed" class="page-card">
+        <div class="pc-head">
+          <h3>Completed Trips</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/ambulance/completed</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/trips" target="_blank">Swagger: trips ↗</a>
+              <a class="rd" href="/redoc#tag/trips" target="_blank">ReDoc: trips ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Completed trips list</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/trips/list_trips_trips__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_trips_trips__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/trips</div><div class="ep-params">?status=COMPLETED&amp;from_dt=ISO8601&amp;to_dt=ISO8601&amp;page=1&amp;page_size=20</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Route replay (on row expand)</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/trips/get_trip_telemetry_trips__trip_id__telemetry_get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/get_trip_telemetry_trips__trip_id__telemetry_get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/trips/{trip_id}/telemetry</div><div class="ep-desc">GPS points in chronological order to draw the route. Max page_size=500.</div><div class="ep-params">?page=1&amp;page_size=500</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!--  FIRE                                   -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="role-section">
+      <div class="role-heading">
+        <span class="rb rb-fire">Fire</span>
+        <h2>Fire Brigade Dashboard</h2>
+        <span class="role-route">/fire/*  ·  org_type = FIRE_DEPARTMENT</span>
+      </div>
+
+      <!-- Dashboard -->
+      <div id="fire-dashboard" class="page-card">
+        <div class="pc-head">
+          <h3>Dashboard</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/fire</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/incidents" target="_blank">Swagger: incidents ↗</a>
+              <a class="sw" href="/docs#/ws" target="_blank">Swagger: ws ↗</a>
+              <a class="rd" href="/redoc#tag/incidents" target="_blank">ReDoc ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">KPI cards + recent alerts</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/list_incidents_incidents__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_incidents_incidents__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-desc">Open alerts — <code>meta.total</code> for KPI, <code>data</code> for the preview list.</div><div class="ep-params">?status=OPEN&amp;page_size=5</div></div></div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-desc">Active deployments count — use <code>meta.total</code>.</div><div class="ep-params">?status=RESPONDING&amp;page_size=1</div></div></div>
+            <div class="ep"><span class="badge b-ws">WS</span><div><div class="ep-path">/ws/connect?token=&lt;access_token&gt;</div><div class="ep-desc"><code>incident_notification</code> messages drive the badge counter.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- New Alerts -->
+      <div id="fire-alerts" class="page-card">
+        <div class="pc-head">
+          <h3>New Alerts</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/fire/alerts</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/incidents" target="_blank">Swagger: incidents ↗</a>
+              <a class="rd" href="/redoc#tag/incidents" target="_blank">ReDoc: incidents ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Open fire incidents</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/list_incidents_incidents__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_incidents_incidents__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-desc">Optionally filter by <code>incident_type=FIRE_DETECTED</code> for fire-only events.</div><div class="ep-params">?status=OPEN&amp;incident_type=FIRE_DETECTED&amp;page=1&amp;page_size=20</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Acknowledge alert</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/update_incident_status_incidents__incident_id__status_patch" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/update_incident_status_incidents__incident_id__status_patch" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-pat">PATCH</span><div><div class="ep-path">/incidents/{incident_id}/status</div><div class="ep-params">Body: { "status": "ACKNOWLEDGED" }</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Incidents -->
+      <div id="fire-active" class="page-card">
+        <div class="pc-head">
+          <h3>Active Incidents</h3>
+          <div class="pc-meta">
+            <span class="pc-route">/fire/active</span>
+            <div class="pc-api">
+              <a class="sw" href="/docs#/incidents" target="_blank">Swagger: incidents ↗</a>
+              <a class="sw" href="/docs#/vehicles" target="_blank">Swagger: vehicles ↗</a>
+              <a class="rd" href="/redoc#tag/incidents" target="_blank">ReDoc ↗</a>
+            </div>
+          </div>
+        </div>
+        <div class="pc-body">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Responding incidents</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/list_incidents_incidents__get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/list_incidents_incidents__get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/incidents</div><div class="ep-params">?status=RESPONDING&amp;page=1&amp;page_size=20</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Mark resolved</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/incidents/update_incident_status_incidents__incident_id__status_patch" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/update_incident_status_incidents__incident_id__status_patch" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-pat">PATCH</span><div><div class="ep-path">/incidents/{incident_id}/status</div><div class="ep-params">Body: { "status": "RESOLVED" }</div></div></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">Responding vehicle positions</div>
+              <div class="sec-links">
+                <a class="sw" href="/docs#/vehicles/get_vehicle_telemetry_latest_vehicles__vehicle_id__telemetry_latest_get" target="_blank">Swagger ↗</a>
+                <a class="rd" href="/redoc#operation/get_vehicle_telemetry_latest_vehicles__vehicle_id__telemetry_latest_get" target="_blank">ReDoc ↗</a>
+              </div>
+            </div>
+            <div class="ep"><span class="badge b-get">GET</span><div><div class="ep-path">/vehicles/{vehicle_id}/telemetry/latest</div><div class="ep-desc">Current position of a fire vehicle en route — for ETA display or mini map.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-card deferred"><div class="pc-head"><h3>Reports <span class="defer-tag">deferred</span></h3><div class="pc-meta"><span class="pc-route">/fire/reports</span></div></div><div class="pc-body"><div class="note n-yellow">No API endpoints yet — keep using mock data.</div></div></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!--  HOSPITAL (deferred)                    -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="role-section" style="opacity:.5">
+      <div class="role-heading">
+        <span class="rb rb-defer">Hospital</span>
+        <h2>Hospital Dashboard <span class="defer-tag">entirely deferred</span></h2>
+        <span class="role-route">/hospital/*</span>
+      </div>
+      <div class="note n-yellow">No <code>HOSPITAL</code> org type in the API. All three pages remain on mock data for the MVP pilot.</div>
+    </div>
+
+    <div class="footer">
+      VM Platform API — FE Integration Guide &nbsp;·&nbsp;
+      <a href="/docs">Swagger UI</a> &nbsp;·&nbsp;
+      <a href="/redoc">ReDoc</a> &nbsp;·&nbsp;
+      <a href="/api-reference">API Reference</a>
+    </div>
+  </main>
+</div>
+
+<script>
+  const navItems = document.querySelectorAll('.sb-item[href^="#"]');
+  const targets  = Array.from(navItems).map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navItems.forEach(a => a.classList.remove('active'));
+        const active = document.querySelector(`.sb-item[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
+  targets.forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

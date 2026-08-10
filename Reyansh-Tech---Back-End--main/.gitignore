@@ -1,0 +1,38 @@
+# ── Python ─────────────────────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# ── Environment / secrets ──────────────────────────────────────────────────────
+.env
+creds.txt
+
+# ── OS ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Build artefacts ────────────────────────────────────────────────────────────
+*.zip
+
+# ── Internal / infra (not for the API repo) ────────────────────────────────────
+machines/
+scripts/
+specs/
+vm-service/
+
+# Services — only services/api is published; workers and shared libs are excluded
+services/workers/
+services/shared/
+
+# Internal planning and design docs
+SPEC.md
+docs/
+Vehicle Monitoring.txt
+
+
+DEPLOY.md
+vm_fe_wiki.md
+vm-fe/*

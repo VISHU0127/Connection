@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VM Platform Simulator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d1117;
+      --card:    #161b22;
+      --border:  #30363d;
+      --blue:    #58a6ff;
+      --green:   #3fb950;
+      --red:     #f85149;
+      --yellow:  #d29922;
+      --orange:  #e3862b;
+      --text:    #c9d1d9;
+      --muted:   #8b949e;
+      --radius:  8px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ──────────────────────────────────────────── */
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e6edf3;
+      letter-spacing: 0.02em;
+    }
+
+    .status-pills {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 500;
+      background: #0d1117;
+    }
+
+    .pill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      transition: background 0.3s;
+    }
+
+    .pill-dot.connected { background: var(--green); }
+
+    /* ── LAYOUT ──────────────────────────────────────────── */
+    .layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+      padding: 20px 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ── CARDS ───────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-body { padding: 16px; }
+
+    /* ── TABS ────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px 16px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .tab-btn.active {
+      color: var(--blue);
+      border-bottom-color: var(--blue);
+    }
+
+    .tab-btn:hover:not(.active) { color: var(--text); }
+
+    .tab-panel { display: none; padding: 16px; }
+    .tab-panel.active { display: block; }
+
+    /* ── FORM ELEMENTS ───────────────────────────────────── */
+    .form-group { margin-bottom: 12px; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 7px 10px;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    input:focus, select:focus { border-color: var(--blue); }
+    input::placeholder { color: var(--muted); opacity: 0.6; }
+
+    input[type="password"] { letter-spacing: 0.05em; }
+
+    /* ── BUTTONS ─────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: opacity 0.2s, filter 0.2s;
+    }
+
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn:not(:disabled):hover { filter: brightness(1.12); }
+
+    .btn-primary {
+      background: var(--blue);
+      color: #0d1117;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 11px;
+    }
+
+    /* ── CREDENTIALS CARD ────────────────────────────────── */
+    #creds-card {
+      display: none;
+      background: #0e2b17;
+      border: 1px solid #1e4d2b;
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-top: 12px;
+    }
+
+    #creds-card.visible { display: block; }
+
+    .creds-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--green);
+      margin-bottom: 12px;
+    }
+
+    .cred-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .cred-label {
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 100px;
+    }
+
+    .cred-value {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px;
+      color: #e6edf3;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .copy-btn {
+      padding: 2px 8px;
+      font-size: 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .copy-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+    /* ── SCENARIOS ───────────────────────────────────────── */
+    .scenarios-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .scenario-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 12px 8px;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+      text-align: center;
+    }
+
+    .scenario-btn:hover:not(:disabled) {
+      border-color: var(--blue);
+      background: #111d2e;
+    }
+
+    .scenario-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .scenario-btn .icon { font-size: 20px; }
+
+    .scenario-btn.running {
+      border-color: var(--yellow);
+      background: #1a1500;
+    }
+
+    /* spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--yellow);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* ── PIPELINE LOG ────────────────────────────────────── */
+    #pipeline-log {
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+      font-size: 12px;
+      background: #010409;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      height: 220px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+
+    .log-line { margin-bottom: 1px; }
+    .log-line .ts { color: #444c56; margin-right: 6px; }
+    .log-line.info .msg { color: var(--muted); }
+    .log-line.success .msg { color: var(--green); }
+    .log-line.error .msg { color: var(--red); }
+    .log-line.warn .msg { color: var(--yellow); }
+    .log-placeholder { color: var(--muted); font-style: italic; }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    /* ── VEHICLE STATE ───────────────────────────────────── */
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .state-item {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      transition: border-color 0.5s;
+    }
+
+    .state-item.highlight {
+      border-color: var(--yellow);
+      animation: flash 0.6s ease;
+    }
+
+    @keyframes flash {
+      0%   { background: #261e00; }
+      100% { background: #0d1117; }
+    }
+
+    .state-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .state-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e6edf3;
+      font-family: "SF Mono", "Fira Code", monospace;
+    }
+
+    .state-unit {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .state-placeholder {
+      color: var(--muted);
+      font-style: italic;
+      font-size: 13px;
+      text-align: center;
+      padding: 24px 0;
+    }
+
+    .state-updated {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 12px;
+      text-align: right;
+    }
+
+    /* ── INCIDENTS ───────────────────────────────────────── */
+    .incident-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .incident-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    .sev-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .sev-CRITICAL { background: #3d0a09; color: var(--red); border: 1px solid #6e1514; }
+    .sev-HIGH     { background: #2d1a00; color: var(--orange); border: 1px solid #5c3700; }
+    .sev-MEDIUM   { background: #2a1e00; color: var(--yellow); border: 1px solid #5a3e00; }
+    .sev-LOW      { background: #0c1e3b; color: var(--blue); border: 1px solid #1a3d6e; }
+
+    .incident-details { flex: 1; min-width: 0; }
+    .incident-type { font-weight: 600; font-size: 13px; }
+    .incident-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .incidents-placeholder {
+      color: var(--muted);
+      font-style: italic;
+      font-size: 13px;
+      text-align: center;
+      padding: 24px 0;
+    }
+
+    /* ── VERIFICATION BANNER ─────────────────────────────── */
+    .verify-banner {
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .verify-banner.show { display: block; }
+    .verify-banner.ok  { background: #0e2b17; color: var(--green); border: 1px solid #1e4d2b; }
+    .verify-banner.fail { background: #2c0b0a; color: var(--red); border: 1px solid #6e1514; }
+    .verify-banner.checking { background: #1a1500; color: var(--yellow); border: 1px solid #3d3000; }
+
+    /* ── ORG TYPE BADGE ──────────────────────────────────── */
+    .org-badge {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      margin-left: 6px;
+    }
+
+    /* ── ERRORS ──────────────────────────────────────────── */
+    .error-msg {
+      color: var(--red);
+      font-size: 12px;
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: #1a0a0a;
+      border: 1px solid #3d1515;
+      border-radius: 6px;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+
+    /* ── MISC ────────────────────────────────────────────── */
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .reveal-btn {
+      padding: 2px 8px;
+      font-size: 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .reveal-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .state-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    /* ── SERVICE STATUS BAR ────────────────────────────────── */
+    #services-bar {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+    }
+    .services-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .services-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .services-ts    { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .services-grid  { display: flex; flex-wrap: wrap; gap: 6px; }
+    .svc-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .svc-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .svc-dot.ok    { background: var(--green); }
+    .svc-dot.error { background: var(--red); }
+    .svc-dot.warn  { background: var(--yellow); }
+
+    /* chip tooltip */
+    .svc-chip { position: relative; cursor: default; }
+    .svc-tooltip {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      z-index: 200;
+      background: #1c2128;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      width: 260px;
+      font-size: 12px;
+      line-height: 1.6;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+      white-space: normal;
+      pointer-events: none;
+    }
+    .svc-chip:hover .svc-tooltip { display: block; }
+    .svc-tooltip-title { font-weight: 600; color: #e6edf3; margin-bottom: 6px; }
+    .svc-tooltip-row { display: flex; gap: 6px; color: var(--muted); }
+    .svc-tooltip-row span:first-child { flex-shrink: 0; width: 70px; color: #6e7681; }
+    .svc-tooltip-row span:last-child  { color: var(--text); word-break: break-all; }
+    .svc-tooltip-fix {
+      margin-top: 8px;
+      padding: 6px 8px;
+      background: rgba(248,81,73,.08);
+      border: 1px solid rgba(248,81,73,.2);
+      border-radius: 4px;
+      color: #f85149;
+      font-size: 11px;
+    }
+    .svc-tooltip-fix code {
+      display: block;
+      margin-top: 4px;
+      color: var(--text);
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 11px;
+    }
+
+    /* ── DB COUNTERS ─────────────────────────────────────── */
+    #stats-bar {
+      display: flex;
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .stat-card {
+      flex: 1;
+      background: var(--card);
+      padding: 10px 16px;
+      text-align: center;
+      transition: background 0.3s;
+    }
+    .stat-card.flash { background: #1f2d1f; }
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #e6edf3;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+    .stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── WS STATUS PILL ──────────────────────────────────── */
+    .ws-label { font-size: 12px; color: var(--muted); }
+
+    /* ── AUTH OVERLAY ──────────────────────────────────── */
+    #auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(13,17,23,0.93);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #auth-overlay.hidden { display: none; }
+    .auth-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      width: 360px;
+      box-shadow: 0 16px 48px rgba(0,0,0,.6);
+    }
+    .auth-box h2 { font-size: 18px; font-weight: 600; color: #e6edf3; margin-bottom: 6px; }
+    .auth-box .auth-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+    .auth-box .btn-primary { margin-top: 8px; }
+    .btn-logout {
+      padding: 5px 12px;
+      font-size: 12px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-logout:hover { border-color: var(--red); color: var(--red); }
+  </style>
+</head>
+<body>
+
+<!-- ── AUTH OVERLAY ────────────────────────────────────────────── -->
+<div id="auth-overlay">
+  <div class="auth-box">
+    <h2>VM Simulator</h2>
+    <p class="auth-subtitle">Sign in with your platform admin credentials to continue.</p>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="auth-email" placeholder="admin@example.com" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter') doAdminLogin()">
+    </div>
+    <div id="auth-error" class="error-msg"></div>
+    <button class="btn btn-primary" id="auth-btn" onclick="doAdminLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- ── HEADER ──────────────────────────────────────────────── -->
+<header>
+  <h1>VM Platform Simulator</h1>
+  <div class="status-pills">
+    <div class="pill">
+      <div class="pill-dot" id="api-dot"></div>
+      <span>API</span>
+    </div>
+    <div class="pill">
+      <div class="pill-dot" id="ws-dot"></div>
+      <span>WS</span>
+      <span class="ws-label" id="ws-label">— not connected</span>
+    </div>
+    <span id="admin-email-label" style="font-size:12px;color:var(--muted);display:none;"></span>
+    <button class="btn-logout" id="logout-btn" onclick="adminLogout()" style="display:none;">Sign Out</button>
+  </div>
+</header>
+
+<!-- ── SERVICE STATUS BAR ──────────────────────────────────── -->
+<div id="services-bar">
+  <div class="services-header">
+    <span class="services-title">Services</span>
+    <span id="services-last-checked" class="services-ts"></span>
+  </div>
+  <div class="services-grid" id="services-grid">
+    <!-- populated by JS -->
+  </div>
+</div>
+
+<!-- ── DB COUNTERS ──────────────────────────────────────────── -->
+<div id="stats-bar">
+  <div class="stat-card" id="stat-organizations">
+    <div class="stat-value" id="sv-organizations">—</div>
+    <div class="stat-label">Organisations</div>
+  </div>
+  <div class="stat-card" id="stat-customers">
+    <div class="stat-value" id="sv-customers">—</div>
+    <div class="stat-label">Customers</div>
+  </div>
+  <div class="stat-card" id="stat-users">
+    <div class="stat-value" id="sv-users">—</div>
+    <div class="stat-label">Users</div>
+  </div>
+  <div class="stat-card" id="stat-vehicles">
+    <div class="stat-value" id="sv-vehicles">—</div>
+    <div class="stat-label">Vehicles</div>
+  </div>
+  <div class="stat-card" id="stat-devices">
+    <div class="stat-value" id="sv-devices">—</div>
+    <div class="stat-label">Devices</div>
+  </div>
+  <div class="stat-card" id="stat-incidents">
+    <div class="stat-value" id="sv-incidents">—</div>
+    <div class="stat-label">Incidents</div>
+  </div>
+  <div class="stat-card" id="stat-trips">
+    <div class="stat-value" id="sv-trips">—</div>
+    <div class="stat-label">Trips</div>
+  </div>
+</div>
+
+<!-- ── MAIN LAYOUT ──────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- ══ COLUMN 1: SETUP & CONTROLS ══════════════════════════ -->
+  <div id="col-left">
+
+    <!-- CREDENTIALS SECTION -->
+    <div class="card">
+      <div class="card-header">Credentials</div>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('onboard')">New Customer (Onboard)</button>
+        <button class="tab-btn" onclick="switchTab('lookup')">Load Existing Vehicle</button>
+      </div>
+
+      <!-- ONBOARD TAB -->
+      <div id="tab-onboard" class="tab-panel active">
+        <div class="form-row">
+          <div class="form-group">
+            <label>First Name</label>
+            <input type="text" id="ob-first" placeholder="Aarav">
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" id="ob-last" placeholder="Shah">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="ob-email" placeholder="aarav@example.com">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="ob-password" placeholder="Min 8 characters">
+        </div>
+        <div class="form-group">
+          <label>Phone (optional)</label>
+          <input type="tel" id="ob-phone" placeholder="+91 98765 43210">
+        </div>
+        <div style="margin: 14px 0 10px; height: 1px; background: var(--border);"></div>
+        <div class="section-title">Vehicle Details</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Registration No.</label>
+            <input type="text" id="ob-reg" placeholder="DL 01 AB 1234">
+          </div>
+          <div class="form-group">
+            <label>Vehicle Type</label>
+            <select id="ob-vtype">
+              <option value="sedan">Sedan</option>
+              <option value="suv">SUV</option>
+              <option value="hatchback">Hatchback</option>
+              <option value="truck">Truck</option>
+              <option value="motorcycle">Motorcycle</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Make</label>
+            <input type="text" id="ob-make" placeholder="Maruti">
+          </div>
+          <div class="form-group">
+            <label>Model</label>
+            <input type="text" id="ob-model" placeholder="Swift">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Year</label>
+            <input type="number" id="ob-year" placeholder="2023" min="1990" max="2030">
+          </div>
+          <div class="form-group">
+            <label>MAC Address</label>
+            <input type="text" id="ob-mac" placeholder="Device ID">
+            <div class="hint">From device QR code</div>
+          </div>
+        </div>
+        <div id="ob-error" class="error-msg"></div>
+        <button class="btn btn-primary" id="ob-btn" onclick="doOnboard()" style="margin-top:4px;">
+          Onboard &amp; Get Credentials
+        </button>
+      </div>
+
+      <!-- LOOKUP TAB -->
+      <div id="tab-lookup" class="tab-panel">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          Enter a device ID or registration number to load an existing vehicle and simulate it.
+        </p>
+        <div class="form-group">
+          <label>Device ID</label>
+          <input type="text" id="lk-device-id" placeholder="e.g. DEV-001 or any device identifier">
+        </div>
+        <div style="text-align:center;font-size:12px;color:var(--muted);margin:6px 0;">— or —</div>
+        <div class="form-group">
+          <label>Registration Number</label>
+          <input type="text" id="lk-reg" placeholder="e.g. DL 01 AB 1234">
+        </div>
+        <div id="lk-error" class="error-msg"></div>
+        <button class="btn btn-primary" id="lk-btn" onclick="doLookup()" style="margin-top:4px;">
+          Load Vehicle
+        </button>
+      </div>
+
+      <!-- CREDENTIALS RESULT -->
+      <div id="creds-card" style="margin:0 16px 16px;">
+        <div class="creds-title">Ready to simulate</div>
+        <div class="cred-row">
+          <span class="cred-label">EMQX Username</span>
+          <span class="cred-value" id="cr-username">—</span>
+          <button class="copy-btn" onclick="copyField('cr-username', this)">Copy</button>
+        </div>
+        <div class="cred-row">
+          <span class="cred-label">EMQX Password</span>
+          <span class="cred-value" id="cr-password" data-plain="">••••••••</span>
+          <button class="reveal-btn" id="pw-reveal-btn" onclick="toggleReveal()">Reveal</button>
+          <button class="copy-btn" onclick="copyField('cr-password', this, true)">Copy</button>
+        </div>
+        <div class="cred-row">
+          <span class="cred-label">User JWT</span>
+          <span class="cred-value" id="cr-jwt" style="font-size:11px;">—</span>
+          <button class="copy-btn" onclick="copyJwt(this)">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEVICE SECTION -->
+    <div class="card">
+      <div class="card-header">Device Configuration</div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Device MAC Address</label>
+            <input type="text" id="dev-mac" placeholder="Device ID">
+          </div>
+          <div class="form-group">
+            <label>EMQX Password</label>
+            <input type="password" id="dev-password" placeholder="Auto-filled after onboard">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Start Latitude</label>
+            <input type="number" id="dev-lat" value="28.6139" step="0.0001">
+          </div>
+          <div class="form-group">
+            <label>Start Longitude</label>
+            <input type="number" id="dev-lon" value="77.2090" step="0.0001">
+          </div>
+        </div>
+        <div class="hint" style="margin-top:-4px;">Default: New Delhi (Connaught Place)</div>
+      </div>
+    </div>
+
+    <!-- SCENARIOS -->
+    <div class="card">
+      <div class="card-header">Scenarios</div>
+      <div class="card-body">
+        <div class="scenarios-grid">
+          <button class="scenario-btn" id="sc-drive" onclick="runScenario('drive')">
+            <span class="icon">🚗</span>
+            <span>Drive 30s</span>
+            <span style="font-size:10px;color:var(--muted);">Full trip simulation</span>
+          </button>
+          <button class="scenario-btn" id="sc-harsh_brake" onclick="runScenario('harsh_brake')">
+            <span class="icon">🛑</span>
+            <span>Harsh Braking</span>
+            <span style="font-size:10px;color:var(--muted);">HARSH_BRAKE incident</span>
+          </button>
+          <button class="scenario-btn" id="sc-accident" onclick="runScenario('accident')">
+            <span class="icon">💥</span>
+            <span>Accident</span>
+            <span style="font-size:10px;color:var(--muted);">CRITICAL ACCIDENT</span>
+          </button>
+          <button class="scenario-btn" id="sc-overheat" onclick="runScenario('overheat')">
+            <span class="icon">🌡️</span>
+            <span>Engine Overheat</span>
+            <span style="font-size:10px;color:var(--muted);">TEMPERATURE_ANOMALY</span>
+          </button>
+          <button class="scenario-btn" id="sc-panic" onclick="runScenario('panic')" style="grid-column:span 2;">
+            <span class="icon">🆘</span>
+            <span>Panic Button</span>
+            <span style="font-size:10px;color:var(--muted);">PANIC incident</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PIPELINE LOG -->
+    <div class="card">
+      <div class="card-body" style="padding-bottom:8px;">
+        <div class="log-header">
+          <span class="section-title" style="margin:0;">Pipeline Log</span>
+          <button class="btn btn-secondary btn-sm" onclick="clearLog()">Clear</button>
+        </div>
+        <div id="pipeline-log">
+          <div class="log-placeholder">Start a scenario to see the pipeline in action…</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /col-left -->
+
+  <!-- ══ COLUMN 2: LIVE DASHBOARD ══════════════════════════════ -->
+  <div id="col-right">
+
+    <!-- VEHICLE STATE -->
+    <div class="card">
+      <div class="card-header">
+        <span>Vehicle State</span>
+        <span style="margin-left:auto;font-size:10px;font-weight:400;color:var(--muted);">Live via WebSocket</span>
+      </div>
+      <div class="card-body">
+        <div id="state-placeholder" class="state-placeholder">
+          No data yet — run a scenario to see live updates
+        </div>
+        <div id="state-grid" class="state-grid" style="display:none;">
+          <div class="state-item" id="st-speed">
+            <div class="state-label">Speed</div>
+            <div class="state-value">—<span class="state-unit"> km/h</span></div>
+          </div>
+          <div class="state-item" id="st-rpm">
+            <div class="state-label">RPM</div>
+            <div class="state-value">—</div>
+          </div>
+          <div class="state-item" id="st-engine-temp">
+            <div class="state-label">Engine Temp</div>
+            <div class="state-value">—<span class="state-unit"> °C</span></div>
+          </div>
+          <div class="state-item" id="st-coolant">
+            <div class="state-label">Coolant</div>
+            <div class="state-value">—<span class="state-unit"> °C</span></div>
+          </div>
+          <div class="state-item" id="st-battery">
+            <div class="state-label">Battery</div>
+            <div class="state-value">—<span class="state-unit"> V</span></div>
+          </div>
+          <div class="state-item" id="st-signal">
+            <div class="state-label">Signal (CSQ)</div>
+            <div class="state-value">—</div>
+          </div>
+          <div class="state-item" id="st-passengers">
+            <div class="state-label">Passengers</div>
+            <div class="state-value">—</div>
+          </div>
+          <div class="state-item" id="st-event">
+            <div class="state-label">Last Event</div>
+            <div class="state-value" style="font-size:13px;">—</div>
+          </div>
+          <div class="state-item" id="st-hdop" style="grid-column:span 1;">
+            <div class="state-label">GPS HDOP</div>
+            <div class="state-value">—</div>
+          </div>
+        </div>
+        <div id="st-location" style="display:none; margin-top:12px;">
+          <div class="section-title" style="margin-bottom:6px;">Location</div>
+          <div style="font-family:'SF Mono','Fira Code',monospace;font-size:13px;color:#e6edf3;" id="st-location-val">—</div>
+        </div>
+        <div id="st-updated" class="state-updated" style="display:none;">
+          Last updated: <span id="st-updated-time">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- INCIDENTS -->
+    <div class="card">
+      <div class="card-header">
+        <span>Incidents</span>
+        <span style="margin-left:auto;font-size:10px;font-weight:400;color:var(--muted);">Live via WebSocket</span>
+      </div>
+      <div class="card-body">
+        <div id="incidents-placeholder" class="incidents-placeholder">
+          Waiting for incidents…
+        </div>
+        <div id="incident-list" class="incident-list" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- VERIFICATION -->
+    <div class="card">
+      <div class="card-header">End-to-End Verification</div>
+      <div class="card-body">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
+          After each scenario, the API is polled to confirm the full pipeline worked (MQTT → Kafka → Postgres).
+        </div>
+        <div id="verify-banner" class="verify-banner"></div>
+        <div id="verify-details" style="margin-top:10px;font-size:12px;color:var(--muted);display:none;"></div>
+      </div>
+
+      <!-- Unknown Hardware Events -->
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header" style="display:flex;align-items:center;gap:8px;">
+          <span>Unknown Hardware Events</span>
+          <span id="unknown-events-badge" style="display:none;background:#f59e0b;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;"></span>
+          <button onclick="loadUnknownEvents()" style="margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">Refresh</button>
+        </div>
+        <div style="padding:12px 16px;font-size:12px;color:var(--muted);">
+          Event strings from hardware that have no active detection rule. Review with the hardware team to decide which ones need rules.
+        </div>
+        <div id="unknown-events-table" style="padding:0 16px 16px;">
+          <div style="color:var(--muted);font-size:12px;">Loading…</div>
+        </div>
+      </div>
+
+    </div>
+    <!-- VEHICLE HISTORY -->
+    <div id="vehicle-history-card" class="card" style="display:none;margin-top:16px;">
+      <div class="card-header" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;" onclick="toggleVehicleHistory()">
+        <span>Vehicle History</span>
+        <span id="vehicle-history-chevron" style="margin-left:auto;font-size:12px;color:var(--muted);">&#9654;</span>
+      </div>
+      <div id="vehicle-history-body" style="display:none;padding:4px 0 12px;">
+        <div style="color:var(--muted);font-size:12px;padding:8px 16px;">Loading…</div>
+      </div>
+    </div>
+
+  </div><!-- /col-right -->
+
+</div><!-- /layout -->
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+const state = {
+  jwt: null,         // platform admin JWT — used for simulator API calls
+  customerJwt: null, // customer JWT from onboard — used for WS
+  orgType: null,
+  deviceMac: null,
+  devicePassword: null,
+  vehicleId: null,
+  deviceId: null,
+  orgId: null,
+};
+
+let ws = null;
+let wsReconnectDelay = 1000;
+let wsReconnectTimer = null;
+let currentEventSource = null;
+let lastAction = null;
+let lastIncidentCheck = 0;
+let lastVehicleStateTime = 0;   // ms — updated on every vehicle_state WS push
+let scenarioStartTime = 0;     // ms — set when runScenario() fires
+
+// ══════════════════════════════════════════════════════════════
+// API HEALTH CHECK
+// ══════════════════════════════════════════════════════════════
+async function checkApiHealth() {
+  try {
+    const r = await fetch('/healthz', { signal: AbortSignal.timeout(4000) });
+    document.getElementById('api-dot').classList.toggle('connected', r.ok);
+  } catch {
+    document.getElementById('api-dot').classList.remove('connected');
+  }
+}
+
+checkApiHealth();
+setInterval(checkApiHealth, 15000);
+
+// ══════════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    const tabs = ['onboard', 'lookup'];
+    b.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════
+// API HELPER
+// ══════════════════════════════════════════════════════════════
+async function apiCall(method, path, body, jwt) {
+  const token = jwt !== undefined ? jwt : state.jwt;
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const r = await fetch(path, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (r.status === 401) {
+    state.jwt = null;
+    sessionStorage.removeItem('vm_admin_jwt');
+    showAuthOverlay();
+    throw new Error('Session expired — please sign in again');
+  }
+  if (!r.ok) {
+    let msg;
+    try {
+      const e = await r.json();
+      msg = (e.detail && typeof e.detail === 'string')
+        ? e.detail
+        : (e.detail && e.detail.error && e.detail.error.message)
+          ? e.detail.error.message
+          : JSON.stringify(e.detail || e);
+    } catch {
+      msg = 'HTTP ' + r.status;
+    }
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+// ══════════════════════════════════════════════════════════════
+// SHOW ERROR
+// ══════════════════════════════════════════════════════════════
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+function clearError(id) {
+  const el = document.getElementById(id);
+  el.textContent = '';
+  el.classList.remove('visible');
+}
+
+// ══════════════════════════════════════════════════════════════
+// ONBOARD
+// ══════════════════════════════════════════════════════════════
+async function doOnboard() {
+  clearError('ob-error');
+  const btn = document.getElementById('ob-btn');
+  btn.disabled = true;
+  btn.textContent = 'Onboarding…';
+
+  const mac = document.getElementById('ob-mac').value.trim();
+
+  try {
+    const data = await apiCall('POST', '/onboard', {
+      first_name: document.getElementById('ob-first').value.trim(),
+      last_name:  document.getElementById('ob-last').value.trim(),
+      email:      document.getElementById('ob-email').value.trim(),
+      password:   document.getElementById('ob-password').value,
+      phone:      document.getElementById('ob-phone').value.trim() || undefined,
+      registration_number: document.getElementById('ob-reg').value.trim(),
+      make:       document.getElementById('ob-make').value.trim() || undefined,
+      model:      document.getElementById('ob-model').value.trim() || undefined,
+      year:       parseInt(document.getElementById('ob-year').value) || undefined,
+      vehicle_type: document.getElementById('ob-vtype').value,
+      mac_address: mac,
+    });
+
+    applyCredentials({
+      jwt:      data.access_token,
+      mac:      data.emqx_username,
+      password: data.emqx_password,
+      vehicleId: data.vehicle_id,
+      deviceId:  data.device_id,
+      orgId:    String(data.org_id),
+      orgType:  'CUSTOMER',
+    });
+
+    logLine('success', 'Onboarding successful — credentials ready');
+  } catch (e) {
+    showError('ob-error', e.message);
+    logLine('error', 'Onboard failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Onboard & Get Credentials';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// VEHICLE LOOKUP
+// ══════════════════════════════════════════════════════════════
+async function doLookup() {
+  clearError('lk-error');
+  const btn = document.getElementById('lk-btn');
+  btn.disabled = true;
+  btn.textContent = 'Looking up…';
+
+  const deviceId = document.getElementById('lk-device-id').value.trim();
+  const regNum   = document.getElementById('lk-reg').value.trim();
+
+  if (!deviceId && !regNum) {
+    showError('lk-error', 'Enter a device ID or registration number.');
+    btn.disabled = false;
+    btn.textContent = 'Load Vehicle';
+    return;
+  }
+
+  try {
+    const body = {};
+    if (deviceId) body.device_id = deviceId;
+    if (regNum)   body.registration_number = regNum;
+
+    const data = await apiCall('POST', '/simulator/lookup-vehicle', body);
+
+    applyCredentials({
+      jwt:      state.jwt,   // use admin JWT for WS
+      mac:      data.emqx_username,
+      password: data.emqx_password,
+      vehicleId: data.vehicle_id,
+      deviceId:  data.device_id,
+      orgId:    null,
+      orgType:  null,
+    });
+
+    const label = data.registration_number
+      ? data.registration_number + (data.make ? ' · ' + data.make + ' ' + (data.model || '') : '')
+      : data.device_id;
+    logLine('success', 'Vehicle loaded: ' + label.trim());
+  } catch (e) {
+    showError('lk-error', e.message);
+    logLine('error', 'Lookup failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Load Vehicle';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// APPLY CREDENTIALS
+// ══════════════════════════════════════════════════════════════
+function applyCredentials({ jwt, mac, password, vehicleId, deviceId, orgId, orgType }) {
+  state.customerJwt  = jwt;
+  state.orgType      = orgType;
+  state.orgId        = orgId;
+  state.deviceMac    = mac    || state.deviceMac;
+  state.devicePassword = password || state.devicePassword;
+  state.vehicleId    = vehicleId || state.vehicleId;
+  state.deviceId     = deviceId  || state.deviceId;
+
+  // Update UI fields
+  const jwtTrunc = jwt ? (jwt.substring(0, 40) + '…') : '—';
+  document.getElementById('cr-username').textContent = mac || '(set after onboard)';
+  document.getElementById('cr-password').dataset.plain = password || '';
+  document.getElementById('cr-password').textContent = password ? '••••••••' : '(set after onboard)';
+  document.getElementById('cr-jwt').textContent = jwtTrunc;
+  document.getElementById('cr-jwt').dataset.full = jwt;
+
+  document.getElementById('creds-card').classList.add('visible');
+
+  // Show vehicle history panel when a vehicle is selected (collapsed by default)
+  if (vehicleId) {
+    document.getElementById('vehicle-history-card').style.display = '';
+    vehicleHistoryLoaded = false;
+    // Keep body collapsed — user expands on demand
+  }
+
+  // Sync into device section
+  if (mac)      document.getElementById('dev-mac').value      = mac;
+  if (password) document.getElementById('dev-password').value = password;
+
+  // Connect WebSocket with customer JWT for vehicle-filtered WS messages
+  connectWs(jwt);
+}
+
+// ══════════════════════════════════════════════════════════════
+// COPY HELPERS
+// ══════════════════════════════════════════════════════════════
+function _copyText(text, btn) {
+  const flash = () => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(flash).catch(() => _copyFallback(text, btn, flash));
+  } else {
+    _copyFallback(text, btn, flash);
+  }
+}
+
+function _copyFallback(text, btn, flash) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); flash(); } catch (_) {}
+  document.body.removeChild(ta);
+}
+
+function copyField(id, btn, usePlain) {
+  const el = document.getElementById(id);
+  const val = usePlain ? el.dataset.plain : (el.dataset.full || el.textContent);
+  if (!val || val === '—') return;
+  _copyText(val, btn);
+}
+
+function copyJwt(btn) {
+  const el = document.getElementById('cr-jwt');
+  const val = el.dataset.full || state.jwt;
+  if (!val) return;
+  _copyText(val, btn);
+}
+
+function toggleReveal() {
+  const el  = document.getElementById('cr-password');
+  const btn = document.getElementById('pw-reveal-btn');
+  const plain = el.dataset.plain;
+  if (!plain) return;
+  if (btn.textContent === 'Reveal') {
+    el.textContent = plain;
+    btn.textContent = 'Hide';
+  } else {
+    el.textContent = '••••••••';
+    btn.textContent = 'Reveal';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// WEBSOCKET
+// ══════════════════════════════════════════════════════════════
+let wsPingInterval = null;
+
+function connectWs(jwt) {
+  if (ws) { try { ws.close(); } catch(_) {} ws = null; }
+  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  if (wsPingInterval) { clearInterval(wsPingInterval); wsPingInterval = null; }
+
+  const wsUrl = window.location.origin.replace(/^http/, 'ws') + '/ws/connect?token=' + encodeURIComponent(jwt);
+  setWsStatus('connecting');
+  ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    wsReconnectDelay = 1000;
+    setWsStatus('connected');
+    logLine('success', 'WebSocket connected — real-time updates active');
+    // Keepalive ping every 20s — prevents server-side 30s receive-timeout disconnect
+    wsPingInterval = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send('ping');
+    }, 20000);
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'vehicle_state') {
+        lastVehicleStateTime = Date.now();
+        updateVehicleState(msg.data);
+      } else if (msg.type === 'incident') {
+        addIncident(msg.data);
+      }
+    } catch(_) {}
+  };
+
+  ws.onclose = (evt) => {
+    if (wsPingInterval) { clearInterval(wsPingInterval); wsPingInterval = null; }
+    const reason = evt.reason ? ` (${evt.reason})` : '';
+    setWsStatus('error', 'disconnected' + reason);
+    // Reconnect with exponential backoff — prefer customer JWT for vehicle-filtered updates
+    const reconnectJwt = state.customerJwt || state.jwt;
+    if (reconnectJwt) {
+      wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);
+      logLine('warn', `WebSocket disconnected${reason} — reconnecting in ${wsReconnectDelay / 1000}s…`);
+      wsReconnectTimer = setTimeout(() => connectWs(reconnectJwt), wsReconnectDelay);
+    }
+  };
+
+  ws.onerror = (evt) => {
+    setWsStatus('error', 'connection error');
+    logLine('error', 'WebSocket error — check that vm-api is running and accessible');
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// VEHICLE STATE
+// ══════════════════════════════════════════════════════════════
+const prevStateValues = {};
+
+function setStateField(id, value, unit) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const valEl = el.querySelector('.state-value');
+  const display = (value !== null && value !== undefined) ? String(value) : '—';
+  const full = unit ? display + '<span class="state-unit"> ' + unit + '</span>' : display;
+  if (prevStateValues[id] !== display) {
+    prevStateValues[id] = display;
+    valEl.innerHTML = full;
+    el.classList.add('highlight');
+    setTimeout(() => el.classList.remove('highlight'), 600);
+  }
+}
+
+function updateVehicleState(data) {
+  document.getElementById('state-placeholder').style.display = 'none';
+  document.getElementById('state-grid').style.display        = 'grid';
+  document.getElementById('st-location').style.display       = 'block';
+  document.getElementById('st-updated').style.display        = 'block';
+
+  setStateField('st-speed',       data.gps_speed   ?? data.obd_speed,     'km/h');
+  setStateField('st-rpm',         data.rpm,                                null);
+  setStateField('st-engine-temp', data.engine_temp,                        '°C');
+  setStateField('st-coolant',     data.coolant_c,                          '°C');
+  setStateField('st-battery',     data.car_battery_v !== undefined ? data.car_battery_v.toFixed(1) : null, 'V');
+  setStateField('st-signal',      data.signal_csq,                         null);
+  setStateField('st-passengers',  data.person_count,                       null);
+  setStateField('st-event',       data.event || '—',                       null);
+  setStateField('st-hdop',        data.hdop !== undefined ? data.hdop.toFixed(2) : null, null);
+
+  if (data.lat !== undefined && data.lon !== undefined) {
+    document.getElementById('st-location-val').textContent =
+      data.lat.toFixed(5) + ', ' + data.lon.toFixed(5);
+  }
+
+  document.getElementById('st-updated-time').textContent = new Date().toLocaleTimeString();
+}
+
+// ══════════════════════════════════════════════════════════════
+// INCIDENTS
+// ══════════════════════════════════════════════════════════════
+const MAX_INCIDENTS = 10;
+const incidentIds = new Set();
+
+function addIncident(data) {
+  const id = data.id || (data.incident_type + data.event_time);
+  if (incidentIds.has(id)) return;
+  incidentIds.add(id);
+
+  document.getElementById('incidents-placeholder').style.display = 'none';
+  const list = document.getElementById('incident-list');
+  list.style.display = 'flex';
+
+  const sev   = (data.severity || 'LOW').toUpperCase();
+  const type  = (data.incident_type || 'UNKNOWN').replace(/_/g, ' ');
+  const time  = data.event_time
+    ? new Date(typeof data.event_time === 'number' ? data.event_time * 1000 : data.event_time).toLocaleTimeString()
+    : new Date().toLocaleTimeString();
+
+  const item = document.createElement('div');
+  item.className = 'incident-item';
+  item.innerHTML = `
+    <div>
+      <span class="sev-badge sev-${sev}">${sev}</span>
+    </div>
+    <div class="incident-details">
+      <div class="incident-type">${type}</div>
+      <div class="incident-meta">${time}</div>
+    </div>`;
+  list.insertBefore(item, list.firstChild);
+
+  // Keep max 10
+  while (list.children.length > MAX_INCIDENTS) {
+    const oldest = list.lastChild;
+    if (oldest) list.removeChild(oldest);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// PIPELINE LOG
+// ══════════════════════════════════════════════════════════════
+function logLine(level, msg) {
+  const log = document.getElementById('pipeline-log');
+  // Remove placeholder
+  const ph = log.querySelector('.log-placeholder');
+  if (ph) ph.remove();
+
+  const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+  const line = document.createElement('div');
+  line.className = 'log-line ' + (level || 'info');
+  line.innerHTML = `<span class="ts">${ts}</span><span class="msg">${escapeHtml(msg)}</span>`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('pipeline-log').innerHTML =
+    '<div class="log-placeholder">Start a scenario to see the pipeline in action…</div>';
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// ══════════════════════════════════════════════════════════════
+// SCENARIOS
+// ══════════════════════════════════════════════════════════════
+const scenarioIds = ['drive', 'harsh_brake', 'accident', 'overheat', 'panic'];
+
+function setScenarioLoading(action, loading) {
+  const btn = document.getElementById('sc-' + action);
+  if (!btn) return;
+  if (loading) {
+    btn.classList.add('running');
+    btn.disabled = true;
+    // replace icon with spinner
+    const icon = btn.querySelector('.icon');
+    if (icon) { icon.dataset.origIcon = icon.textContent; icon.innerHTML = '<div class="spinner"></div>'; }
+  } else {
+    btn.classList.remove('running');
+    btn.disabled = false;
+    const icon = btn.querySelector('.icon');
+    if (icon && icon.dataset.origIcon) {
+      icon.textContent = icon.dataset.origIcon;
+      delete icon.dataset.origIcon;
+    }
+  }
+}
+
+function disableAllScenarios() {
+  scenarioIds.forEach(id => {
+    const btn = document.getElementById('sc-' + id);
+    if (btn) btn.disabled = true;
+  });
+}
+
+function enableAllScenarios() {
+  scenarioIds.forEach(id => {
+    const btn = document.getElementById('sc-' + id);
+    if (btn) btn.disabled = false;
+  });
+}
+
+async function runScenario(action) {
+  const mac      = document.getElementById('dev-mac').value.trim();
+  const password = document.getElementById('dev-password').value.trim();
+  const lat      = parseFloat(document.getElementById('dev-lat').value) || 28.6139;
+  const lon      = parseFloat(document.getElementById('dev-lon').value) || 77.2090;
+
+  if (!state.jwt) {
+    logLine('error', 'Not signed in — please sign in first');
+    showAuthOverlay();
+    return;
+  }
+  if (!mac) {
+    logLine('error', 'Device ID is required');
+    return;
+  }
+  if (!password) {
+    logLine('error', 'EMQX password is required');
+    return;
+  }
+
+  // Cancel previous SSE if any
+  if (currentEventSource) {
+    currentEventSource.close();
+    currentEventSource = null;
+  }
+
+  lastAction = action;
+  scenarioStartTime = Date.now();
+  setScenarioLoading(action, true);
+  disableAllScenarios();
+  setScenarioLoading(action, true); // re-set after disableAll
+
+  hideVerifyBanner();
+  logLine('info', 'Starting scenario: ' + action);
+
+  let sessionId;
+  try {
+    const resp = await apiCall('POST', '/simulator/simulate', {
+      action,
+      mac_address: mac,
+      emqx_password: password,
+      lat,
+      lon,
+    }, state.jwt);
+    sessionId = resp.session_id;
+    logLine('info', 'Session: ' + sessionId);
+  } catch (e) {
+    logLine('error', 'Failed to start simulation: ' + e.message);
+    enableAllScenarios();
+    setScenarioLoading(action, false);
+    return;
+  }
+
+  // Stream SSE
+  const sseUrl = '/simulator/stream/' + encodeURIComponent(sessionId);
+  const es = new EventSource(sseUrl);
+  currentEventSource = es;
+
+  es.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      const level = msg.level || 'info';
+      const text  = msg.message || msg.msg || JSON.stringify(msg);
+      logLine(level, text);
+
+      if (msg.done === true || msg.status === 'done' || msg.event === 'done') {
+        es.close();
+        currentEventSource = null;
+        enableAllScenarios();
+        setScenarioLoading(action, false);
+        logLine('success', 'Scenario complete');
+        runVerification(action);
+      }
+    } catch(_) {
+      logLine('info', e.data);
+    }
+  };
+
+  es.addEventListener('done', (e) => {
+    es.close();
+    currentEventSource = null;
+    enableAllScenarios();
+    setScenarioLoading(action, false);
+    logLine('success', 'Scenario complete');
+    runVerification(action);
+  });
+
+  es.onerror = (e) => {
+    // SSE connection closed — treat as done
+    if (es.readyState === EventSource.CLOSED) {
+      currentEventSource = null;
+      enableAllScenarios();
+      setScenarioLoading(action, false);
+      runVerification(action);
+    } else {
+      logLine('warn', 'SSE connection error');
+    }
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// VERIFICATION
+// ══════════════════════════════════════════════════════════════
+function hideVerifyBanner() {
+  const b = document.getElementById('verify-banner');
+  b.classList.remove('show', 'ok', 'fail', 'checking');
+  document.getElementById('verify-details').style.display = 'none';
+}
+
+function showVerifyBanner(status, msg, details) {
+  const b = document.getElementById('verify-banner');
+  b.classList.remove('ok', 'fail', 'checking');
+  b.classList.add('show', status);
+  b.textContent = msg;
+  const det = document.getElementById('verify-details');
+  if (details) {
+    det.textContent = details;
+    det.style.display = 'block';
+  } else {
+    det.style.display = 'none';
+  }
+}
+
+async function runVerification(action) {
+  const verifyJwt = state.customerJwt || state.jwt;
+  if (!verifyJwt) return;
+
+  showVerifyBanner('checking', 'Verifying end-to-end pipeline…');
+  logLine('info', 'Running verification…');
+
+  if (action === 'drive') {
+    // Verify via WebSocket: the state-updater publishes to Redis → ws relay pushes to browser.
+    // lastVehicleStateTime is stamped on every vehicle_state WS message. If it was updated
+    // after scenarioStartTime, the full pipeline (MQTT → Kafka → Postgres → Redis → WS) worked.
+    const deadline = Date.now() + 15000;
+    let verified = false;
+    while (Date.now() < deadline) {
+      if (lastVehicleStateTime > scenarioStartTime) {
+        verified = true;
+        break;
+      }
+      await sleep(500);
+    }
+    if (verified) {
+      showVerifyBanner('ok', '✓ Vehicle state received via WebSocket',
+        'State update arrived ' + new Date(lastVehicleStateTime).toLocaleTimeString() +
+        ' — full pipeline functional (MQTT → Kafka → DB → Redis → WS)');
+      logLine('success', 'Verification passed: vehicle state received via WebSocket');
+    } else {
+      showVerifyBanner('fail', '✗ No vehicle state update received via WebSocket',
+        'Check that mqtt-ingestion, state-updater, and the WebSocket connection are healthy.');
+      logLine('warn', 'Verification: no vehicle_state WS message — check pipeline workers');
+    }
+  } else {
+    // Poll GET /incidents
+    const deadline = Date.now() + 10000;
+    const since    = new Date(Date.now() - 5000).toISOString();
+    let verified   = false;
+    let foundIncident = null;
+    while (Date.now() < deadline) {
+      try {
+        const data = await apiCall('GET', '/incidents?page_size=10', null, verifyJwt);
+        const items = data.items || data.incidents || data.data || [];
+        const recent = items.find(i => new Date(i.created_at).getTime() > (Date.now() - 60000));
+        if (recent) {
+          verified = true;
+          foundIncident = recent;
+          break;
+        }
+      } catch(e) {
+        logLine('warn', 'Verification poll error: ' + e.message);
+        break;
+      }
+      await sleep(1000);
+    }
+    if (verified) {
+      const typeLabel = (foundIncident.incident_type || '').replace(/_/g, ' ');
+      showVerifyBanner('ok', '✓ Incident confirmed via API',
+        'Incident: ' + typeLabel + ' (' + (foundIncident.severity || '') + ') — full pipeline functional');
+      logLine('success', 'Verification passed: incident found in API');
+    } else {
+      showVerifyBanner('fail', '✗ No incident detected in API',
+        'Check that the incident-routing worker and Postgres are running.');
+      logLine('warn', 'Verification: no recent incident found — pipeline may be paused');
+    }
+  }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ══════════════════════════════════════════════════════════════
+// SERVICE STATUS
+// ══════════════════════════════════════════════════════════════
+const SERVICE_LABELS = {
+  'api':                        'API',
+  'database':                   'Database',
+  'redis':                      'Redis',
+  'emqx':                       'EMQX',
+  'kafka':                      'Kafka',
+  'mqtt-ingestion':             'MQTT Ingestion',
+  'kafka-state-updater':        'State Updater',
+  'kafka-incident-detection':   'Incident Detection',
+  'kafka-telemetry-processor':  'Telemetry Processor',
+  'postgres-jobs':              'Scheduler',
+};
+
+function buildTooltip(key, svc) {
+  const status   = svc.status || 'unknown';
+  const label    = svc.label  || key;
+  const machine  = svc.machine  || '—';
+  const systemd  = svc.systemd  || '—';
+  const endpoint = svc.endpoint || '';
+  const note     = svc.note     || '';
+  const isOk     = status === 'ok';
+
+  let rows = '';
+  if (endpoint) rows += `<div class="svc-tooltip-row"><span>Endpoint</span><span>${endpoint}</span></div>`;
+  if (note)     rows += `<div class="svc-tooltip-row"><span>Info</span><span>${note}</span></div>`;
+  rows += `<div class="svc-tooltip-row"><span>Machine</span><span>${machine}</span></div>`;
+  rows += `<div class="svc-tooltip-row"><span>Service</span><span>${systemd}</span></div>`;
+
+  const fixBlock = isOk ? '' : `
+    <div class="svc-tooltip-fix">
+      To fix: SSH into <strong>${machine}</strong> and run:
+      <code>sudo systemctl status ${systemd}</code>
+      <code>sudo journalctl -u ${systemd} -n 30 --no-pager</code>
+    </div>`;
+
+  return `
+    <div class="svc-tooltip">
+      <div class="svc-tooltip-title">${label}</div>
+      ${rows}
+      ${fixBlock}
+    </div>`;
+}
+
+async function pollServices() {
+  if (!state.jwt) return;
+  try {
+    const data = await apiCall('GET', '/simulator/services', null);
+    const grid = document.getElementById('services-grid');
+    grid.innerHTML = '';
+    for (const [key, svc] of Object.entries(data)) {
+      const status   = svc.status || 'unknown';
+      const label    = svc.label  || SERVICE_LABELS[key] || key;
+      const dotClass = status === 'ok' ? 'ok' : status === 'unconfigured' ? 'warn' : 'error';
+      const chip = document.createElement('div');
+      chip.className = 'svc-chip';
+      chip.innerHTML = `<div class="svc-dot ${dotClass}"></div><span>${label}</span>${buildTooltip(key, svc)}`;
+      grid.appendChild(chip);
+    }
+    document.getElementById('services-last-checked').textContent =
+      'checked ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    document.getElementById('services-last-checked').textContent = 'check failed';
+  }
+}
+
+setInterval(pollServices, 10000);
+
+// ══════════════════════════════════════════════════════════════
+// DB STATS COUNTERS
+// ══════════════════════════════════════════════════════════════
+const _prevStats = {};
+
+async function pollStats() {
+  if (!state.jwt) return;
+  try {
+    const data = await apiCall('GET', '/simulator/stats', null);
+    for (const [key, val] of Object.entries(data)) {
+      const el = document.getElementById('sv-' + key);
+      const card = document.getElementById('stat-' + key);
+      if (!el) continue;
+      const prev = _prevStats[key];
+      if (val !== prev && prev !== undefined) {
+        // Flash green when value changes
+        card.classList.add('flash');
+        setTimeout(() => card.classList.remove('flash'), 800);
+      }
+      _prevStats[key] = val;
+      el.textContent = val >= 0 ? val.toLocaleString() : '—';
+    }
+  } catch(_) {}
+}
+
+setInterval(pollStats, 5000);
+
+// ══════════════════════════════════════════════════════════════
+// ADMIN AUTH
+// ══════════════════════════════════════════════════════════════
+function showAuthOverlay() {
+  const overlay = document.getElementById('auth-overlay');
+  const wasHidden = overlay.classList.contains('hidden');
+  overlay.classList.remove('hidden');
+  if (wasHidden) document.getElementById('auth-email').focus();
+}
+
+function hideAuthOverlay() {
+  document.getElementById('auth-overlay').classList.add('hidden');
+}
+
+function adminLogout() {
+  sessionStorage.removeItem('vm_admin_jwt');
+  state.jwt = null;
+  state.customerJwt = null;
+  document.getElementById('logout-btn').style.display = 'none';
+  document.getElementById('admin-email-label').style.display = 'none';
+  document.getElementById('creds-card').classList.remove('visible');
+  document.getElementById('vehicle-history-card').style.display = 'none';
+  document.getElementById('vehicle-history-body').style.display = 'none';
+  document.getElementById('vehicle-history-chevron').innerHTML = '&#9654;';
+  vehicleHistoryLoaded = false;
+  if (ws) { try { ws.close(); } catch(_) {} ws = null; }
+  if (wsPingInterval) { clearInterval(wsPingInterval); wsPingInterval = null; }
+  setWsStatus('idle');
+  showAuthOverlay();
+}
+
+async function doAdminLogin() {
+  clearError('auth-error');
+  const btn = document.getElementById('auth-btn');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  try {
+    const data = await apiCall('POST', '/auth/login', {
+      email:    document.getElementById('auth-email').value.trim(),
+      password: document.getElementById('auth-password').value,
+    }, null);  // explicitly null — no token yet
+
+    const orgType = data.user?.org_type || '';
+    if (orgType !== 'PLATFORM') {
+      showError('auth-error', 'Access denied — platform admin account required.');
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+      return;
+    }
+
+    state.jwt = data.access_token;
+    sessionStorage.setItem('vm_admin_jwt', data.access_token);
+
+    const email = document.getElementById('auth-email').value.trim();
+    document.getElementById('admin-email-label').textContent = email;
+    document.getElementById('admin-email-label').style.display = '';
+    document.getElementById('logout-btn').style.display = '';
+
+    hideAuthOverlay();
+    document.getElementById('auth-password').value = '';
+    logLine('success', 'Signed in as platform admin: ' + email);
+
+    pollServices();
+    pollStats();
+    loadUnknownEvents();
+  } catch (e) {
+    showError('auth-error', e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+}
+
+// ── PAGE INIT ───────────────────────────────────────────────
+(function initAuth() {
+  const saved = sessionStorage.getItem('vm_admin_jwt');
+  if (saved) {
+    state.jwt = saved;
+    document.getElementById('logout-btn').style.display = '';
+    hideAuthOverlay();
+    pollServices();
+    pollStats();
+    loadUnknownEvents();
+  } else {
+    showAuthOverlay();
+  }
+})();
+
+// ══════════════════════════════════════════════════════════════
+// WS STATUS LABEL
+// ══════════════════════════════════════════════════════════════
+function setWsStatus(state, msg) {
+  const dot   = document.getElementById('ws-dot');
+  const label = document.getElementById('ws-label');
+  dot.classList.remove('connected');
+  if (state === 'connected') {
+    dot.classList.add('connected');
+    label.textContent = 'connected';
+    label.style.color = 'var(--green)';
+  } else if (state === 'connecting') {
+    label.textContent = 'connecting…';
+    label.style.color = 'var(--yellow)';
+  } else if (state === 'error') {
+    label.textContent = msg || 'error';
+    label.style.color = 'var(--red)';
+  } else {
+    label.textContent = '— login first';
+    label.style.color = 'var(--muted)';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// VEHICLE HISTORY
+// ══════════════════════════════════════════════════════════════
+let vehicleHistoryLoaded = false;
+
+function toggleVehicleHistory() {
+  const body    = document.getElementById('vehicle-history-body');
+  const chevron = document.getElementById('vehicle-history-chevron');
+  const opening = body.style.display === 'none';
+  body.style.display    = opening ? '' : 'none';
+  chevron.innerHTML     = opening ? '&#9660;' : '&#9654;';
+  if (opening && !vehicleHistoryLoaded) {
+    vehicleHistoryLoaded = true;
+    loadVehicleHistory();
+  }
+}
+
+async function loadVehicleHistory() {
+  const el = document.getElementById('vehicle-history-body');
+  const vid = state.vehicleId;
+  if (!vid || !state.jwt) return;
+  el.innerHTML = '<div style="color:var(--muted);font-size:12px;">Loading…</div>';
+  try {
+    const data = await apiCall('GET', `/simulator/vehicle-history/${vid}`, null, state.jwt);
+    const trips = data.trips || [];
+    const incidents = data.incidents || [];
+    const telemetry = data.telemetry || [];
+    const deviceId = data.device_id || '—';
+
+    // ── Telemetry ──────────────────────────────────────────
+    let telHtml = `<div style="font-weight:600;font-size:12px;color:var(--muted);margin-bottom:4px;">
+      TELEMETRY — last ${telemetry.length} rows
+      <span style="font-weight:400;font-size:11px;"> · device: <code style="font-size:11px;">${deviceId}</code></span>
+    </div>`;
+    if (!telemetry.length) {
+      telHtml += '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">No telemetry received yet.</div>';
+    } else {
+      telHtml += '<div style="overflow-x:auto;overflow-y:auto;max-height:242px;margin-bottom:14px;">';
+      telHtml += '<table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace;">';
+      telHtml += '<thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">' +
+        '<th style="padding:3px 6px;font-family:sans-serif;">Time (UTC)</th>' +
+        '<th style="padding:3px 6px;text-align:right;font-family:sans-serif;">Lat</th>' +
+        '<th style="padding:3px 6px;text-align:right;font-family:sans-serif;">Lng</th>' +
+        '<th style="padding:3px 6px;text-align:right;font-family:sans-serif;">Speed</th>' +
+        '<th style="padding:3px 6px;text-align:right;font-family:sans-serif;">RPM</th>' +
+        '<th style="padding:3px 6px;text-align:right;font-family:sans-serif;">Temp °C</th>' +
+        '<th style="padding:3px 6px;text-align:right;font-family:sans-serif;">Batt V</th>' +
+        '<th style="padding:3px 6px;font-family:sans-serif;">Event</th>' +
+        '</tr></thead><tbody>';
+      for (const r of telemetry) {
+        const ts = r.event_timestamp ? new Date(r.event_timestamp).toISOString().replace('T',' ').slice(0,19) : '—';
+        const evCell = r.event
+          ? `<span style="background:#f59e0b22;color:#f59e0b;border-radius:3px;padding:1px 5px;">${r.event}</span>`
+          : '';
+        telHtml += `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:3px 6px;color:var(--muted);">${ts}</td>
+          <td style="padding:3px 6px;text-align:right;">${r.lat != null ? r.lat.toFixed(4) : '—'}</td>
+          <td style="padding:3px 6px;text-align:right;">${r.lng != null ? r.lng.toFixed(4) : '—'}</td>
+          <td style="padding:3px 6px;text-align:right;">${r.speed != null ? r.speed.toFixed(1) : '—'}</td>
+          <td style="padding:3px 6px;text-align:right;">${r.rpm != null ? r.rpm : '—'}</td>
+          <td style="padding:3px 6px;text-align:right;">${r.temperature != null ? r.temperature.toFixed(1) : '—'}</td>
+          <td style="padding:3px 6px;text-align:right;">${r.battery != null ? r.battery.toFixed(1) : '—'}</td>
+          <td style="padding:3px 6px;">${evCell}</td>
+        </tr>`;
+      }
+      telHtml += '</tbody></table></div>';
+    }
+
+    // ── Incidents ──────────────────────────────────────────
+    let incHtml = '<div style="font-weight:600;font-size:12px;color:var(--muted);margin-bottom:6px;">INCIDENTS (' + incidents.length + ')</div>';
+    if (!incidents.length) {
+      incHtml += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">No incidents recorded.</div>';
+    } else {
+      incHtml += '<div style="overflow-y:auto;max-height:242px;margin-bottom:14px;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+      incHtml += '<thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">' +
+        '<th style="padding:3px 6px;">Type</th><th style="padding:3px 6px;">Severity</th>' +
+        '<th style="padding:3px 6px;">Status</th><th style="padding:3px 6px;">Time</th></tr></thead><tbody>';
+      const sevColor = {CRITICAL:'var(--red)',HIGH:'#f97316',MEDIUM:'var(--yellow)',LOW:'var(--muted)'};
+      for (const i of incidents) {
+        const t = i.event_time ? new Date(i.event_time).toLocaleString() : '—';
+        const c = sevColor[i.severity] || 'var(--muted)';
+        incHtml += `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:4px 6px;font-weight:600;">${(i.incident_type||'').replace(/_/g,' ')}</td>
+          <td style="padding:4px 6px;color:${c};">${i.severity||'—'}</td>
+          <td style="padding:4px 6px;">${i.status||'—'}</td>
+          <td style="padding:4px 6px;color:var(--muted);">${t}</td>
+        </tr>`;
+      }
+      incHtml += '</tbody></table></div>';
+    }
+
+    // ── Trips ──────────────────────────────────────────────
+    let tripHtml = '<div style="font-weight:600;font-size:12px;color:var(--muted);margin-bottom:6px;">TRIPS (' + trips.length + ')</div>';
+    if (!trips.length) {
+      tripHtml += '<div style="font-size:12px;color:var(--muted);">No trips recorded.</div>';
+    } else {
+      tripHtml += '<div style="overflow-y:auto;max-height:242px;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+      tripHtml += '<thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">' +
+        '<th style="padding:3px 6px;">Start</th><th style="padding:3px 6px;">End</th>' +
+        '<th style="padding:3px 6px;">Distance</th><th style="padding:3px 6px;">Status</th></tr></thead><tbody>';
+      for (const t of trips) {
+        const start = t.start_time ? new Date(t.start_time).toLocaleString() : '—';
+        const end   = t.end_time   ? new Date(t.end_time).toLocaleString()   : '—';
+        const dist  = t.distance_meters != null ? (t.distance_meters / 1000).toFixed(2) + ' km' : '—';
+        tripHtml += `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:4px 6px;color:var(--muted);">${start}</td>
+          <td style="padding:4px 6px;color:var(--muted);">${end}</td>
+          <td style="padding:4px 6px;">${dist}</td>
+          <td style="padding:4px 6px;">${t.status||'—'}</td>
+        </tr>`;
+      }
+      tripHtml += '</tbody></table></div>';
+    }
+
+    el.innerHTML = '<div style="padding:8px 16px 4px;">' + telHtml + incHtml + tripHtml + '</div>';
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--red);font-size:12px;">Error: ${err.message}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// UNKNOWN HARDWARE EVENTS
+// ══════════════════════════════════════════════════════════════
+async function loadUnknownEvents() {
+  const el = document.getElementById('unknown-events-table');
+  const badge = document.getElementById('unknown-events-badge');
+  if (!state.jwt) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;">Login first.</div>'; return; }
+  try {
+    const data = await apiCall('GET', '/simulator/unknown-events', null, state.jwt);
+    const events = data.unknown_events || [];
+    badge.textContent = events.length;
+    badge.style.display = events.length ? 'inline' : 'none';
+    if (!events.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:12px;">No unknown events seen yet.</div>';
+      return;
+    }
+    const rows = events.map(e => {
+      const ts = e.last_seen_epoch ? new Date(e.last_seen_epoch * 1000).toLocaleString() : '—';
+      const device = e.last_device_id || '—';
+      const payload = JSON.stringify(e.example_payload || {}, null, 2);
+      return `<tr>
+        <td style="font-weight:600;color:var(--yellow);padding:6px 8px;">${e.event_type}</td>
+        <td style="padding:6px 8px;text-align:right;">${e.count}</td>
+        <td style="padding:6px 8px;">${ts}</td>
+        <td style="padding:6px 8px;font-family:monospace;font-size:11px;">${device}</td>
+        <td style="padding:6px 8px;">
+          <details><summary style="cursor:pointer;font-size:11px;color:var(--muted);">view</summary>
+          <pre style="font-size:10px;margin:4px 0;white-space:pre-wrap;word-break:break-all;">${payload}</pre></details>
+        </td>
+      </tr>`;
+    }).join('');
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">
+        <th style="padding:4px 8px;">Event Type</th>
+        <th style="padding:4px 8px;text-align:right;">Count</th>
+        <th style="padding:4px 8px;">Last Seen</th>
+        <th style="padding:4px 8px;">Last Device</th>
+        <th style="padding:4px 8px;">Payload</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--red);font-size:12px;">Error: ${err.message}</div>`;
+  }
+}
+</script>
+</body>
+</html>
